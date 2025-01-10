@@ -1,0 +1,85 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+.venv/
+venv/
+ENV/
+build/
+dist/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+wheels/
+
+# PyInstaller
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coveragerc
+.cache
+*.cover
+.hypothesis/
+
+# Flask instance folder
+instance/
+.webassets-cache
+
+# Logs
+*.log
+
+# Translations
+*.mo
+*.pot
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# dotenv
+.env
+*.env.*
+
+# Flask static and compiled assets
+static/*.map
+static/*.css
+static/*.js
+static/*.gz
+
+# Flask migrations
+migrations/
+
+# celery
+celerybeat-schedule
+*.pid
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# mypy
+.mypy_cache/
+
+# Sphinx documentation
+docs/_build/
