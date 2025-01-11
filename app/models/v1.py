@@ -43,7 +43,6 @@ class Category(TimestampMixin, db.Model):
 class User(TimestampMixin, db.Model):
     """
     Represents a user in the system.
-
     Attributes:
         id (int): The unique identifier for the user.
         username (str): The unique username of the user, required.
@@ -56,8 +55,9 @@ class User(TimestampMixin, db.Model):
     """
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), nullable=False, unique=True)
+    fullname = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
+    password = db.Column(db.String(60), nullable=False)
     role_id = db.Column(
         db.Integer, db.ForeignKey(
             'roles.id', ondelete="SET NULL"), nullable=True)
@@ -330,11 +330,15 @@ class Ticket(TimestampMixin, db.Model):
 
     Attributes:
         id (int): The unique identifier for the ticket.
-        asset_id (int): The foreign key referencing the asset associated with the ticket, required.
-        user_id (int): The foreign key referencing the user who created or is assigned to the ticket, can be null.
+        asset_id (int):
+            The foreign key referencing the asset associated with the ticket,
+                required.
+        user_id (int): The foreign key referencing the user who created or
+            is assigned to the ticket, can be null.
         status (str): The current status of the ticket, default is 'Open'.
         description (str): A description of the issue or request, required.
-        resolution_notes (str): Notes describing the resolution of the ticket, can be null.
+        resolution_notes (str): Notes describing the resolution of the ticket,
+            an be null.
     """
     __tablename__ = 'tickets'
     id = db.Column(db.Integer, primary_key=True)
