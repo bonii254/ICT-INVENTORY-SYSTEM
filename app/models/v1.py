@@ -20,6 +20,49 @@ class TimestampMixin(object):
         server_onupdate=db.func.now()
     )
 
+class AssetTransfer(TimestampMixin, db.Model):
+    """
+    Represents a transfer record for an asset within the system.
+
+    Attributes:
+        id (int): The unique identifier for the asset transfer.
+        asset_id (int):
+            The foreign key referencing the asset being transferred, required.
+        from_location_id (int):
+            The foreign key referencing the asset's
+                origin location, can be null.
+        to_location_id (int):
+            The foreign key referencing the asset's
+                destination location, can be null.
+        transferred_by (int):
+            The foreign key referencing the user who initiated the transfer,
+                can be null.
+        transferred_to (int):
+            The foreign key referencing the user receiving the asset,
+                can be null.
+        transfer_date (datetime):
+            The date and time when the asset transfer occurred, required.
+        notes (str): Any additional notes related to the transfer.
+    """
+    __tablename__ = 'asset_transfers'
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(
+        db.Integer, db.ForeignKey(
+            'assets.id', ondelete="CASCADE"), nullable=False)
+    from_location_id = db.Column(
+        db.Integer, db.ForeignKey(
+            'locations.id', ondelete="SET NULL"), nullable=True)
+    to_location_id = db.Column(
+        db.Integer, db.ForeignKey(
+            'locations.id', ondelete="SET NULL"), nullable=True)
+    transferred_by = db.Column(
+        db.Integer, db.ForeignKey(
+            'users.id', ondelete="SET NULL"), nullable=True)
+    transferred_to = db.Column(
+        db.Integer, db.ForeignKey(
+            'users.id', ondelete="SET NULL"), nullable=True)
+    transfer_date = db.Column(db.DateTime, nullable=False)
+    notes = db.Column(db.Text)
 
 class Category(TimestampMixin, db.Model):
     """
@@ -65,8 +108,17 @@ class User(TimestampMixin, db.Model):
         db.Integer, db.ForeignKey(
             'departments.id', ondelete="SET NULL"), nullable=True)
     assets = db.relationship('Asset', backref='user', lazy=True)
-    transfers = db.relationship('AssetTransfer', backref='user', lazy=True)
     tickets = db.relationship('Ticket', backref='user', lazy=True)
+    sent_transfers = db.relationship(
+        'AssetTransfer',
+        foreign_keys='AssetTransfer.transferred_by',
+        backref='sender'
+    )
+    received_transfers = db.relationship(
+        'AssetTransfer',
+        foreign_keys='AssetTransfer.transferred_to',
+        backref='receiver'
+    )
 
 
 class Role(TimestampMixin, db.Model):
@@ -125,7 +177,7 @@ class Location(TimestampMixin, db.Model):
     )
 
 
-class Status(TimestampMixin, db.Model):
+class Status(db.Model):
     """
     Represents the status of an asset in the system.
 
@@ -204,52 +256,7 @@ class Asset(TimestampMixin, db.Model):
         cascade="all, delete-orphan", lazy=True)
 
 
-class AssetTransfer(TimestampMixin, db.Model):
-    """
-    Represents a transfer record for an asset within the system.
-
-    Attributes:
-        id (int): The unique identifier for the asset transfer.
-        asset_id (int):
-            The foreign key referencing the asset being transferred, required.
-        from_location_id (int):
-            The foreign key referencing the asset's
-                origin location, can be null.
-        to_location_id (int):
-            The foreign key referencing the asset's
-                destination location, can be null.
-        transferred_by (int):
-            The foreign key referencing the user who initiated the transfer,
-                can be null.
-        transferred_to (int):
-            The foreign key referencing the user receiving the asset,
-                can be null.
-        transfer_date (datetime):
-            The date and time when the asset transfer occurred, required.
-        notes (str): Any additional notes related to the transfer.
-    """
-    __tablename__ = 'asset_transfers'
-    id = db.Column(db.Integer, primary_key=True)
-    asset_id = db.Column(
-        db.Integer, db.ForeignKey(
-            'assets.id', ondelete="CASCADE"), nullable=False)
-    from_location_id = db.Column(
-        db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=True)
-    to_location_id = db.Column(
-        db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=True)
-    transferred_by = db.Column(
-        db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=True)
-    transferred_to = db.Column(
-        db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=True)
-    transfer_date = db.Column(db.DateTime, nullable=False)
-    notes = db.Column(db.Text)
-
-
-class Software(TimestampMixin, db.Model):
+class Software(db.Model):
     """
     Represents software associated with an asset in the system.
 
