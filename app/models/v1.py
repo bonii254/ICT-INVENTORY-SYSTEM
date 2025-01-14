@@ -34,7 +34,7 @@ class AssetTransfer(TimestampMixin, db.Model):
         to_location_id (int):
             The foreign key referencing the asset's
                 destination location, can be null.
-        transferred_by (int):
+        transferred_from (int):
             The foreign key referencing the user who initiated the transfer,
                 can be null.
         transferred_to (int):
@@ -51,17 +51,16 @@ class AssetTransfer(TimestampMixin, db.Model):
             'assets.id', ondelete="CASCADE"), nullable=False)
     from_location_id = db.Column(
         db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=True)
+            'locations.id', ondelete="SET NULL"), nullable=False)
     to_location_id = db.Column(
         db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=True)
-    transferred_by = db.Column(
+            'locations.id', ondelete="SET NULL"), nullable=False)
+    transferred_from = db.Column(
         db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=True)
+            'users.id', ondelete="SET NULL"), nullable=False)
     transferred_to = db.Column(
         db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=True)
-    transfer_date = db.Column(db.DateTime, nullable=False)
+            'users.id', ondelete="SET NULL"), nullable=False)
     notes = db.Column(db.Text)
 
 class Category(TimestampMixin, db.Model):
@@ -152,7 +151,7 @@ class Department(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     users = db.relationship('User', backref='department', lazy=True)
-
+    assets = db.relationship('Assets', backref='department', lazy=True)
 
 class Location(TimestampMixin, db.Model):
     __tablename__ = 'locations'
@@ -192,6 +191,13 @@ class Status(db.Model):
     assets = db.relationship('Asset', backref='status', lazy=True)
 
 
+software_asset_association = db.Table(
+    'software_asset_association',
+    db.Column('software_id', db.Integer, db.ForeignKey('software.id', ondelete="CASCADE"), primary_key=True),
+    db.Column('asset_id', db.Integer, db.ForeignKey('assets.id', ondelete="CASCADE"), primary_key=True)
+)
+
+
 class Asset(TimestampMixin, db.Model):
     """
     Represents an asset within the system.
@@ -201,15 +207,15 @@ class Asset(TimestampMixin, db.Model):
         asset_tag (str): The unique asset tag, required.
         name (str): The name of the asset, required.
         category_id (int):
-            The foreign key referencing the asset's category, can be null.
+            The foreign key referencing the asset's category.
         assigned_to (int):
             The foreign key referencing the user the asset is
-            assigned to, can be null.
+            assigned to.
         location_id (int):
-            The foreign key referencing the asset's location, can be null.
+            The foreign key referencing the asset's location.
         status_id (int):
-            The foreign key referencing the asset's status, can be null.
-        purchase_date (date): The purchase date of the asset, can be null.
+            The foreign key referencing the asset's status.
+        purchase_date (date): The purchase date of the asset.
         warranty_expiry (date):
             The warranty expiry date of the asset, can be null.
         configuration (str): Configuration details of the asset.
@@ -226,16 +232,16 @@ class Asset(TimestampMixin, db.Model):
     name = db.Column(db.String(255), nullable=False)
     category_id = db.Column(
         db.Integer, db.ForeignKey(
-            'categories.id', ondelete="SET NULL"), nullable=True)
+            'categories.id', ondelete="SET NULL"))
     assigned_to = db.Column(
         db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=True)
+            'users.id', ondelete="SET NULL"))
     location_id = db.Column(
         db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=True)
+            'locations.id', ondelete="SET NULL"))
     status_id = db.Column(
         db.Integer, db.ForeignKey(
-            'statuses.id', ondelete="SET NULL"), nullable=True)
+            'statuses.id', ondelete="SET NULL"))
     purchase_date = db.Column(db.Date, nullable=True)
     warranty_expiry = db.Column(db.Date, nullable=True)
     configuration = db.Column(db.Text)
@@ -245,8 +251,9 @@ class Asset(TimestampMixin, db.Model):
         cascade="all, delete-orphan", lazy=True)
     software = db.relationship(
         'Software',
-        backref='asset',
-        cascade="all, delete-orphan", lazy=True)
+        secondary=software_asset_association,
+        back_populates='assets'
+    )
     tickets = db.relationship(
         'Ticket',
         backref='asset',
@@ -254,6 +261,9 @@ class Asset(TimestampMixin, db.Model):
     network_devices = db.relationship(
         'NetworkDevice', backref='asset',
         cascade="all, delete-orphan", lazy=True)
+    department_id = db.Column(
+        db.Integer, db.ForeignKey(
+            'departments.id', ondelete="SET NULL"), nullable=True)
 
 
 class Software(db.Model):
@@ -267,9 +277,7 @@ class Software(db.Model):
         license_key (str): The license key for the software, can be null.
         expiry_date (date):
             The expiry date of the software license, can be null.
-        asset_id (int):
-            The foreign key referencing the asset associated with the software,
-                required.
+        assets (list): List of assets associated with this software.
     """
     __tablename__ = 'software'
     id = db.Column(db.Integer, primary_key=True)
@@ -277,9 +285,11 @@ class Software(db.Model):
     version = db.Column(db.String(50), nullable=True)
     license_key = db.Column(db.String(255), nullable=True)
     expiry_date = db.Column(db.Date, nullable=True)
-    asset_id = db.Column(
-        db.Integer, db.ForeignKey(
-            'assets.id', ondelete="CASCADE"), nullable=False)
+    assets = db.relationship(
+        'Asset',
+        secondary=software_asset_association,
+        back_populates='software'
+    )
 
 
 class NetworkDevice(TimestampMixin, db.Model):
@@ -310,7 +320,6 @@ class NetworkDevice(TimestampMixin, db.Model):
 class AssetLifecycle(TimestampMixin, db.Model):
     """
     Represents the lifecycle events of an asset.
-
     Attributes:
         id (int): The unique identifier for the asset lifecycle event.
         asset_id (int):
@@ -327,7 +336,6 @@ class AssetLifecycle(TimestampMixin, db.Model):
         db.Integer, db.ForeignKey(
             'assets.id', ondelete="CASCADE"), nullable=False)
     event = db.Column(db.String(255), nullable=False)
-    event_date = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.Text)
 
 
