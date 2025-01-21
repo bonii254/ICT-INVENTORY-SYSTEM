@@ -9,7 +9,8 @@ from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
 dep_bp = Blueprint("dep_bp", __name__)
 
 
-@dep_bp.route('/department/register', methods=['POST'])
+@dep_bp.route('/register/department', methods=['POST'])
+@jwt_required()
 def create_department():
     """
     Create a new Department.

@@ -65,7 +65,7 @@ def create_user():
 
 
 @auth_bp.route('/auth/login', methods=['POST'], strict_slashes=False)
-@limiter.limit("10 per minute")
+#@limiter.limit("10 per minute")
 def login():
     """login a user by authentification"""
     try:
@@ -91,7 +91,8 @@ def login():
                     "role_id": user.role_id
                 }
             }), 200
-        return jsonify({"message": "Invalid email or password"}), 401
+        else:
+            return jsonify({"message": "Invalid email or password"}), 401
     except ValidationError as e:
         return jsonify({"Error": e.messages}), 400
     except Exception as e:
@@ -122,7 +123,6 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
 def refresh():
     """Refresh the access token using the refresh token"""
     try:
-        # Get the current user identity from the refresh token
         current_user = get_jwt_identity()
         new_access_token = create_access_token(identity=current_user)
         return jsonify({

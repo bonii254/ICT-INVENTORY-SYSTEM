@@ -9,8 +9,8 @@ from utils.validations.role_validate import RegRoleSchema, UpdateRoleSchema
 role_bp = Blueprint("role_bp", __name__)
 
 
-@role_bp.route('/role/register', methods=['POST'])
-
+@role_bp.route('/register/role', methods=['POST'])
+@jwt_required()
 def create_role():
     """
     Create a new role.
@@ -40,7 +40,7 @@ def create_role():
         db.session.commit()
         return jsonify({
             "message": "Role registered successfully!",
-            "user": {
+            "Role": {
                 "name": new_role.name,
                 "permissions": new_role.permissions
             }
