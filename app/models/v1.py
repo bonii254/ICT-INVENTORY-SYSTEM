@@ -110,7 +110,7 @@ class User(TimestampMixin, db.Model):
     tickets = db.relationship('Ticket', backref='user', lazy=True)
     sent_transfers = db.relationship(
         'AssetTransfer',
-        foreign_keys='AssetTransfer.transferred_by',
+        foreign_keys='AssetTransfer.transferred_from',
         backref='sender'
     )
     received_transfers = db.relationship(
@@ -151,7 +151,7 @@ class Department(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     users = db.relationship('User', backref='department', lazy=True)
-    assets = db.relationship('Assets', backref='department', lazy=True)
+    assets = db.relationship('Asset', backref='department', lazy=True)
 
 class Location(TimestampMixin, db.Model):
     __tablename__ = 'locations'
