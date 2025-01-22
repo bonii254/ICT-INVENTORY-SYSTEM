@@ -1,0 +1,127 @@
+from marshmallow import Schema, fields, validate, validates, ValidationError
+from datetime import datetime
+from app.models.v1 import Category, User, Location, Status, Department, Asset
+
+
+class RegAssetSchema(Schema):
+    """
+    Marshmallow schema for validating Asset creation data.
+    """
+    asset_tag = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=100),
+        error_messages={
+            "required": "The 'asset_tag' field is required.",
+            "null": "The 'asset_tag' field cannot be null."
+        }
+    )
+    name = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=255),
+        error_messages={
+            "required": "The 'name' field is required.",
+            "null": "The 'name' field cannot be null."
+        }
+    )
+    category_id = fields.Int(required=False, allow_none=True)
+    assigned_to = fields.Int(required=False, allow_none=True)
+    location_id = fields.Int(required=False, allow_none=True)
+    status_id = fields.Int(required=False, allow_none=True)
+    purchase_date = fields.Date(
+        required=False,
+        allow_none=True,
+        error_messages={
+            "invalid": "The 'purchase_date' must be in YYYY-MM-DD format."}
+    )
+    warranty_expiry = fields.Date(
+        required=False,
+        allow_none=True,
+        error_messages={
+            "invalid": "The 'warranty_expiry' must be in YYYY-MM-DD format."}
+    )
+    configuration = fields.Str(
+        required=False,
+        allow_none=True,
+        validate=fields.Length(max=1000),
+        error_messages={
+            "invalid": "The 'configuration' field must be a valid string.",
+            "max_length":
+            "The 'configuration' field cannot exceed 1000 characters."
+        }
+    )
+    department_id = fields.Int(
+        required=False,
+        allow_none=True
+    )
+
+    @validates("asset_tag")
+    def validate_asset_tag(self, value):
+        """
+        Ensure the asset_tag is unique.
+        """
+        if Asset.query.filter_by(asset_tag=value).first():
+            raise ValidationError(f"The 'asset_tag' '{value}' already exists.")
+
+    @validates("category_id")
+    def validate_category_id(self, value):
+        """
+        Ensure the category_id exists in the database.
+        """
+        if value and not Category.query.get(value):
+            raise ValidationError(f"Category with id {value} does not exist.")
+
+    @validates("assigned_to")
+    def validate_assigned_to(self, value):
+        """
+        Ensure the assigned_to user exists in the database.
+        """
+        if value and not User.query.get(value):
+            raise ValidationError(f"User with id {value} does not exist.")
+
+    @validates("location_id")
+    def validate_location_id(self, value):
+        """
+        Ensure the location_id exists in the database.
+        """
+        if value and not Location.query.get(value):
+            raise ValidationError(f"Location with id {value} does not exist.")
+
+    @validates("status_id")
+    def validate_status_id(self, value):
+        """
+        Ensure the status_id exists in the database.
+        """
+        if value and not Status.query.get(value):
+            raise ValidationError(f"Status with id {value} does not exist.")
+
+    @validates("department_id")
+    def validate_department_id(self, value):
+        """
+        Ensure the department_id exists in the database.
+        """
+        if value and not Department.query.get(value):
+            raise ValidationError(
+                f"Department with id {value} does not exist."
+            )
+
+    @validates("purchase_date")
+    def validate_purchase_date(self, value):
+        """
+        Ensure the purchase_date is not in the future.
+        """
+        if value and value > datetime.utcnow().date():
+            raise ValidationError(
+                "The 'purchase_date' cannot be in the future."
+            )
+
+    @validates("warranty_expiry")
+    def validate_warranty_expiry(self, value):
+        """
+        Ensure the warranty_expiry date is not earlier than the purchase_date.
+        """
+        if value and "purchase_date" in self.context:
+            purchase_date = self.context["purchase_date"]
+            if purchase_date and value < purchase_date:
+                raise ValidationError(
+                    "The 'warranty_expiry' cannot be earlier than the\
+                          'purchase_date'.")
