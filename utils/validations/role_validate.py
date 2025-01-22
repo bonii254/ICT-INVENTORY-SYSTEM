@@ -1,5 +1,5 @@
 from marshmallow import (
-    Schema, fields, validate, validates, post_load, ValidationError)
+    fields, validate, validates, post_load, ValidationError)
 from app.extensions import ma
 from app.models.v1 import Role
 
