@@ -13,6 +13,20 @@ loc_bp = Blueprint("loc_bp", __name__)
 @jwt_required()
 def create_location():
     """"
+    Register a new location.
+
+    This endpoint allows authenticated users to register a new location by
+    providing `name` and `address` in the request body. Validates input using
+    a schema and saves the location to the database.
+
+    Returns:
+        - 201: Location created successfully.
+        - 400: Validation error.
+        - 415: Unsupported Media Type.
+        - 500: Internal server error.
+
+    Security:
+        - Requires JWT authentication.
     """
     try:
         if not request.is_json:
