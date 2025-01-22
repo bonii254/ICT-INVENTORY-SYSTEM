@@ -188,13 +188,22 @@ class Status(db.Model):
     __tablename__ = 'statuses'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
+    description = db.Column(db.String(255))
     assets = db.relationship('Asset', backref='status', lazy=True)
 
 
 software_asset_association = db.Table(
     'software_asset_association',
-    db.Column('software_id', db.Integer, db.ForeignKey('software.id', ondelete="CASCADE"), primary_key=True),
-    db.Column('asset_id', db.Integer, db.ForeignKey('assets.id', ondelete="CASCADE"), primary_key=True)
+    db.Column(
+        'software_id', db.Integer,
+        db.ForeignKey(
+            'software.id',
+            ondelete="CASCADE"), primary_key=True),
+    db.Column(
+        'asset_id', db.Integer,
+        db.ForeignKey(
+            'assets.id',
+            ondelete="CASCADE"), primary_key=True)
 )
 
 
