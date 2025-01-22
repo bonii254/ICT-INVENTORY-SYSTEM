@@ -1,7 +1,6 @@
 from marshmallow import (
-    Schema, fields, validate, validates, post_load, ValidationError)
+    fields, validate, validates, post_load, ValidationError)
 from app.extensions import ma
-from datetime import datetime
 from app.extensions import bcrypt
 from app.models.v1 import User, Role, Department
 
@@ -45,14 +44,12 @@ class LoginSchema(ma.Schema):
     email = fields.Email(required=True, validate=validate.Length(max=120))
     password = fields.Str(required=True)
 
-    @post_load
-    def validate_email_exists(self, data, **kwargs):
+    @validates('email')
+    def validate_email_exists(self, value):
         """Check if the email exists in the database."""
-        email = data.get('email')
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=value).first()
         if not user:
             raise ValidationError("Email not found in the database.")
-        return data
 
 
 class UpdateUserSchema(ma.Schema):
