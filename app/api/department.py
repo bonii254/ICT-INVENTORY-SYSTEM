@@ -32,7 +32,8 @@ def create_department():
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. Content-Type must be application/json."
+                "Unsupported Media Type. \
+                    Content-Type must be application/json."
             }), 415
         dep_data = request.get_json()
         dep_info = RegDepSchema().load(dep_data)
@@ -77,7 +78,8 @@ def update_department(department_id):
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. Content-Type must be application/json."
+                "Unsupported Media Type. \
+                    Content-Type must be application/json."
             }), 415
         department = Department.query.get(department_id)
         if not department:
@@ -103,4 +105,3 @@ def update_department(department_id):
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
-
