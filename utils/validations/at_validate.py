@@ -1,0 +1,77 @@
+from marshmallow import fields, validates, ValidationError
+from app.extensions import ma
+from app.models.v1 import Asset, Location, User
+
+
+class RegATSchema(ma.Schema):
+    """
+    Marshmallow schema for validating AssetTransfer data.
+    """
+
+    asset_id = fields.Integer(required=True)
+    from_location_id = fields.Integer(required=True)
+    to_location_id = fields.Integer(required=True)
+    transferred_from = fields.Integer(required=True)
+    transferred_to = fields.Integer(required=True)
+    notes = fields.String(required=True)
+
+    @validates("asset_id")
+    def validate_asset_id(self, value):
+        """Validate that the asset exists."""
+        if not Asset.query.get(value):
+            raise ValidationError(f"Asset with id {value} does not exist.")
+
+    @validates("from_location_id")
+    def validate_from_location_id(self, value):
+        """Validate that the from_location exists."""
+        if not Location.query.get(value):
+            raise ValidationError(f"Location with id {value} does not exist.")
+
+    @validates("to_location_id")
+    def validate_to_location_id(self, value):
+        """Validate that the to_location exists."""
+        if not Location.query.get(value):
+            raise ValidationError(f"Location with id {value} does not exist.")
+
+    @validates("transferred_from")
+    def validate_transferred_from(self, value):
+        """
+        Validate that the user initiating the transfer exists and
+        matches the current assigned user.
+        """
+        user = User.query.get(value)
+        if not user:
+            raise ValidationError(f"User with id {value} does not exist.")
+
+        asset_id = self.context.get("asset_id")
+        if asset_id:
+            asset = Asset.query.get(asset_id)
+            if asset and asset.assigned_to != value:
+                raise ValidationError(
+                    f"User with id {value} is not currently assigned" +
+                    f" to asset with id {asset_id}."
+                )
+
+    @validates("transferred_to")
+    def validate_transferred_to(self, value):
+        """
+        Validate that the user receiving the transfer exists and
+        ensure no self-transfer.
+        """
+        user = User.query.get(value)
+        if not user:
+            raise ValidationError(f"User with id {value} does not exist.")
+
+        transferred_from = self.context.get("transferred_from")
+        if transferred_from and transferred_from == value:
+            raise ValidationError(
+                "An asset cannot be transferred to the same user.")
+
+    def validate(self, data, **kwargs):
+        """
+        Custom validation to inject context for transferred_from and
+        asset_id.
+        """
+        self.context["transferred_from"] = data.get("transferred_from")
+        self.context["asset_id"] = data.get("asset_id")
+        super().validate(data, **kwargs)
