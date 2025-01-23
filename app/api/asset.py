@@ -48,6 +48,8 @@ def create_asset():
         new_asset = Asset(
             asset_tag=asset_info["asset_tag"],
             name=asset_info["name"],
+            ip_address=asset_info["ip_address"],
+            mac_address=asset_info["mac_address"],
             category_id=asset_info["category_id"],
             assigned_to=asset_info["assigned_to"],
             location_id=asset_info["location_id"],
@@ -65,6 +67,8 @@ def create_asset():
             "asset": {
                 "asset_tag": new_asset.asset_tag,
                 "name": new_asset.name,
+                "ip_address": new_asset.ip_address,
+                "mac_address": new_asset.mac_address,
                 "category_id": new_asset.category_id,
                 "assigned_to": new_asset.assigned_to,
                 "location_id": new_asset.location_id,
