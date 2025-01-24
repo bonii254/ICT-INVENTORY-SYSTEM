@@ -32,8 +32,8 @@ def create_location():
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. \
-                    Content-Type must be application/json."
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
             }), 415
         location_data = request.get_json()
         location_info = RegLocSchema().load(location_data)
