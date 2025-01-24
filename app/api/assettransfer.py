@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 from app.extensions import db
-from app.models.v1 import AssetTransfer, Asset
+from app.models.v1 import AssetTransfer, Asset, User
 from flask_jwt_extended import jwt_required
 from utils.validations.at_validate import RegATSchema
 
@@ -52,17 +52,17 @@ def create_assettransfer():
 
         if not asset:
             return jsonify({"error": "Asset not found"}), 404
-        asset.assigned_to = assettransfer_info["transferred_to"]
-        asset.location_id = assettransfer_info["to_location_id"]
 
         new_assettransfer = AssetTransfer(
             asset_id=assettransfer_info["asset_id"],
-            from_location_id=assettransfer_info["from_location_id"],
+            from_location_id=asset.location_id,
             to_location_id=assettransfer_info["to_location_id"],
-            transferred_from=assettransfer_info["transferred_from"],
+            transferred_from=asset.assigned_to,
             transferred_to=assettransfer_info["transferred_to"],
             notes=assettransfer_info["notes"]
         )
+        asset.assigned_to = assettransfer_info["transferred_to"]
+        asset.location_id = assettransfer_info["to_location_id"]
         db.session.add(new_assettransfer)
         db.session.commit()
         return jsonify({
