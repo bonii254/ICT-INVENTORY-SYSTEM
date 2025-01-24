@@ -78,8 +78,8 @@ def update_department(department_id):
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. \
-                    Content-Type must be application/json."
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
             }), 415
         department = Department.query.get(department_id)
         if not department:
