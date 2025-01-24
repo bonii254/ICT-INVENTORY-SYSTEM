@@ -20,6 +20,7 @@ class TimestampMixin(object):
         server_onupdate=db.func.now()
     )
 
+
 class AssetTransfer(TimestampMixin, db.Model):
     """
     Represents a transfer record for an asset within the system.
@@ -63,6 +64,7 @@ class AssetTransfer(TimestampMixin, db.Model):
             'users.id', ondelete="SET NULL"), nullable=False)
     notes = db.Column(db.Text)
 
+
 class Category(TimestampMixin, db.Model):
     """
     Represents a category to which assets can be assigned.
@@ -89,7 +91,8 @@ class User(TimestampMixin, db.Model):
         id (int): The unique identifier for the user.
         username (str): The unique username of the user, required.
         email (str): The unique email of the user, required.
-        role_id (int): The foreign key referencing the user's role, can be null.
+        role_id (int): The foreign key referencing the user's role,
+            can be null.
         department_id (int): The foreign key referencing the user's department.
         assets (list): The list of assets associated with this user.
         transfers (list): The list of asset transfers involving this user.
@@ -152,6 +155,7 @@ class Department(TimestampMixin, db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     users = db.relationship('User', backref='department', lazy=True)
     assets = db.relationship('Asset', backref='department', lazy=True)
+
 
 class Location(TimestampMixin, db.Model):
     __tablename__ = 'locations'
@@ -232,13 +236,13 @@ class Asset(TimestampMixin, db.Model):
             The list of asset lifecycle records associated with the asset.
         software (list): The list of software associated with the asset.
         tickets (list): The list of tickets associated with the asset.
-        network_devices (list):
-            The list of network devices associated with the asset.
     """
     __tablename__ = 'assets'
     id = db.Column(db.Integer, primary_key=True)
     asset_tag = db.Column(db.String(100), nullable=False, unique=True)
     name = db.Column(db.String(255), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=True, unique=True)
+    mac_address = db.Column(db.String(17), nullable=True, unique=True)
     category_id = db.Column(
         db.Integer, db.ForeignKey(
             'categories.id', ondelete="SET NULL"))
@@ -266,9 +270,6 @@ class Asset(TimestampMixin, db.Model):
     tickets = db.relationship(
         'Ticket',
         backref='asset',
-        cascade="all, delete-orphan", lazy=True)
-    network_devices = db.relationship(
-        'NetworkDevice', backref='asset',
         cascade="all, delete-orphan", lazy=True)
     department_id = db.Column(
         db.Integer, db.ForeignKey(
@@ -299,31 +300,6 @@ class Software(db.Model):
         secondary=software_asset_association,
         back_populates='software'
     )
-
-
-class NetworkDevice(TimestampMixin, db.Model):
-    """
-    Represents a network device associated with an asset in the system.
-
-    Attributes:
-        id (int): The unique identifier for the network device.
-        ip_address (str):
-            The IP address of the network device, required and unique.
-        mac_address (str):
-            The MAC address of the network device, can be null and unique.
-        configuration (str): Configuration details of the network device.
-        asset_id (int):
-            The foreign key referencing the asset associated with the network
-                device, required.
-    """
-    __tablename__ = 'network_devices'
-    id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(45), nullable=False, unique=True)
-    mac_address = db.Column(db.String(17), nullable=True, unique=True)
-    configuration = db.Column(db.Text)
-    asset_id = db.Column(
-        db.Integer, db.ForeignKey(
-            'assets.id', ondelete="CASCADE"), nullable=False)
 
 
 class AssetLifecycle(TimestampMixin, db.Model):
