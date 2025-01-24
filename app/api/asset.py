@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
-from app.models.v1 import Asset, User, Location, Department, Status
+from app.models.v1 import Asset, User, Location, Department, Status, Category
 from app.extensions import db
 from utils.validations.asset_validate import RegAssetSchema
 
@@ -46,8 +46,23 @@ def create_asset():
             }), 415
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
+        category = Category.query.get(asset_info["category_id"])
+        category_parts = category.name.split(':')
+        category_prefix = category_parts[0][:4]
+        category_suffix = category_parts[1][:3]
+        base_tag = f"{category_prefix}{category_suffix}"
+        latest_asset = Asset.query.filter(
+            Asset.asset_tag.like(f"{base_tag}%")).order_by(
+                Asset.asset_tag.desc()).first()
+        if latest_asset:
+            last_number = int(latest_asset.asset_tag[-3:])
+            new_number = str(last_number + 1).zfill(3)
+        else:
+            new_number = "001"
+        asset_tag = f"{base_tag}{new_number}"
+
         new_asset = Asset(
-            asset_tag=asset_info["asset_tag"],
+            asset_tag=asset_tag,
             name=asset_info["name"],
             ip_address=asset_info["ip_address"],
             mac_address=asset_info["mac_address"],
@@ -62,6 +77,7 @@ def create_asset():
         )
         db.session.add(new_asset)
         db.session.commit()
+
         user = User.query.get(new_asset.assigned_to)
         location = Location.query.get(new_asset.location_id)
         department = Department.query.get(new_asset.department_id)
@@ -74,7 +90,7 @@ def create_asset():
                 "name": new_asset.name,
                 "ip_address": new_asset.ip_address,
                 "mac_address": new_asset.mac_address,
-                "category_id": new_asset.category_id,
+                "category": category.name,
                 "assigned_to": user.fullname,
                 "location": location.name,
                 "status": status.name,
