@@ -8,14 +8,6 @@ class RegAssetSchema(Schema):
     """
     Marshmallow schema for validating Asset creation data.
     """
-    asset_tag = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=100),
-        error_messages={
-            "required": "The 'asset_tag' field is required.",
-            "null": "The 'asset_tag' field cannot be null."
-        }
-    )
     name = fields.Str(
         required=True,
         validate=validate.Length(min=1, max=255),
@@ -64,14 +56,6 @@ class RegAssetSchema(Schema):
         required=False,
         allow_none=True
     )
-
-    @validates("asset_tag")
-    def validate_asset_tag(self, value):
-        """
-        Ensure the asset_tag is unique.
-        """
-        if Asset.query.filter_by(asset_tag=value).first():
-            raise ValidationError(f"The 'asset_tag' '{value}' already exists.")
 
     @validates("ip_address")
     def validate_ip_address(self, value):
