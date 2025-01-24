@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
-from app.models.v1 import Asset
+from app.models.v1 import Asset, User, Location, Department, Status
 from app.extensions import db
 from utils.validations.asset_validate import RegAssetSchema
 
@@ -15,7 +15,8 @@ def create_asset():
     """
     Register a new asset.
 
-    This endpoint allows authorized users to register a new asset in the system.
+    This endpoint allows authorized users to register
+    a new asset in the system.
     The request must contain a JSON payload with the following fields:
         - asset_tag (str): Unique identifier for the asset.
         - name (str): Name of the asset.
@@ -61,6 +62,10 @@ def create_asset():
         )
         db.session.add(new_asset)
         db.session.commit()
+        user = User.query.get(new_asset.assigned_to)
+        location = Location.query.get(new_asset.location_id)
+        department = Department.query.get(new_asset.department_id)
+        status = Status.query.get(new_asset.status_id)
 
         return jsonify({
             "message": "Asset created successfully",
@@ -70,13 +75,13 @@ def create_asset():
                 "ip_address": new_asset.ip_address,
                 "mac_address": new_asset.mac_address,
                 "category_id": new_asset.category_id,
-                "assigned_to": new_asset.assigned_to,
-                "location_id": new_asset.location_id,
-                "status_id": new_asset.status_id,
+                "assigned_to": user.fullname,
+                "location": location.name,
+                "status": status.name,
                 "purchase_date": new_asset.purchase_date,
                 "warranty_expiry": new_asset.warranty_expiry,
                 "configuration": new_asset.configuration,
-                "department_id": new_asset.department_id
+                "department": department.name
             }
         }), 201
 
