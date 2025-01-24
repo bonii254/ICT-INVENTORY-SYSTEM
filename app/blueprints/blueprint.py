@@ -5,7 +5,6 @@ from app.api.asset import asset_bp
 from app.api.ticket import tic_bp
 from app.api.status import status_bp
 from app.api.software import sofware_bp
-from app.api.networkdevice import netdev_bp
 from app.api.location import loc_bp
 from app.api.category import cat_bp
 from app.api.assettransfer import at_bp
@@ -17,6 +16,6 @@ def register_blueprints(app):
     Register all blueprints with the Flask application.
     """
     blueprints = [auth_bp, dep_bp, role_bp, asset_bp, tic_bp, status_bp,
-                  sofware_bp, netdev_bp, loc_bp, cat_bp, at_bp, alc_bp]
+                  sofware_bp, loc_bp, cat_bp, at_bp, alc_bp]
     for blueprint in blueprints:
         app.register_blueprint(blueprint)
