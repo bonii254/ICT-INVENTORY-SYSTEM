@@ -3,7 +3,7 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, get_jwt, get_jwt_identity,)
 import redis
 from datetime import datetime
-from app.models.v1 import User
+from app.models.v1 import User, Department, Role
 from app.extensions import db, bcrypt, jwt
 from marshmallow import ValidationError
 from flask_limiter import Limiter
@@ -71,8 +71,10 @@ def login():
     try:
         if not request.is_json:
             return jsonify({
-                "error": "Unsupported Media Type. \
-                Content-Type must be application/json."}), 415
+                "error":
+                "Unsupported Media Type." +
+                " Content-Type must be application/json."
+            }), 415
         user_data = request.get_json()
         user_info = LoginSchema().load(user_data)
         email = user_info.get('email')
@@ -139,8 +141,10 @@ def Update_User_Info():
     try:
         if not request.is_json:
             return jsonify({
-                "error": "Unsupported Media Type. \
-                Content-Type must be application/json."}), 415
+                "error":
+                "Unsupported Media Type." +
+                " Content-Type must be application/json."
+            }), 415
         email = get_jwt_identity()
         current_user = User.query.filter_by(email=email).first()
         if not current_user:
@@ -169,29 +173,35 @@ def Update_User_Info():
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
 
-@auth_bp.route('/auth/employee', methods=['GET'])
-@jwt_required()
-def FindEmployee():
-    """Check if employee is in the database"""
-    email = request.args.get('email')
-    if not email:
-        return jsonify({
-            "message": "email query parameter is required"
-        }), 400
 
+@auth_bp.route('/user/<user_id>', methods=['GET'])
+@jwt_required()
+def get_user(user_id):
+    """
+    Retrieve user details by user ID.
+    This endpoint fetches user information (ID, full name, and department)
+        from the database.
+    Requires a valid JWT token.
+    Args:
+        user_id (str): The ID of the user to fetch.
+    Returns:
+        JSON response with user details (200) or error message (404/500).
+    """
     try:
-        user = User.query.filter_by(email=email).first()
+        if not user_id.isdigit():
+            return jsonify({"Error": "Invalid user ID format"}), 400
+        user = User.query.filter_by(id=user_id).first()
         if user:
+            department = Department.query.get(user.department_id)
+            role = Role.query.get(user.role_id)
             return jsonify({
-                "message": "success!",
-                "User": {
+                "user": {
                     "fullname": user.fullname,
-                    "role_id": user.role_id,
                     "email": user.email,
-                    "department_id": user.department_id,
+                    "department": department.name,
+                    "role": role.name
                 }
             }), 200
-        else:
-            return jsonify({"message": "user not registered"}), 404
+        return jsonify({"Error": f"User with id {user_id} not found"}), 404
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
