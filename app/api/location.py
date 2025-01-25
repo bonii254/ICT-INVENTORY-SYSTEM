@@ -138,7 +138,7 @@ def get_department(location_id):
         }), 500
 
 
-@loc_bp.route('/locations', methods=['get'])
+@loc_bp.route('/locations', methods=['GET'])
 @jwt_required()
 def get_all_locations():
     """
