@@ -3,7 +3,7 @@ from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Category
 from flask_jwt_extended import jwt_required
-from utils.validations.cat_validate import RegCatSchema
+from utils.validations.cat_validate import RegCatSchema, UpdateCatSchema
 
 
 cat_bp = Blueprint("cat_bp", __name__)
@@ -15,9 +15,9 @@ def create_category():
     """
     Create a new category.
 
-    This endpoint allows authenticated users to create a new category by providing
-    the `name` and `description` in the request body. Validates input using a
-    schema and saves the role to the database.
+    This endpoint allows authenticated users to create a new category
+    by providing the `name` and `description` in the request body.
+    Validates input using a schema and saves the role to the database.
 
     Returns:
         - 201: category created successfully.
@@ -32,7 +32,8 @@ def create_category():
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. Content-Type must be application/json."
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
             }), 415
         cat_data = request.get_json()
         new_cat = RegCatSchema().load(cat_data)
@@ -47,6 +48,141 @@ def create_category():
         }), 201
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@cat_bp.route('/category/<int:category_id>', methods=['PUT'])
+@jwt_required()
+def update_category(category_id):
+    """
+    Update a category's details by ID.
+    Args:
+        category_id (int): The ID of the category to update.
+    Returns:
+        JSON response with the updated category details,
+        or an error message if unsuccessful.
+    """
+    try:
+        if not request.is_json:
+            return jsonify({
+                "error":
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
+            }), 415
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({
+                "error": f"category with ID {category_id} not found."
+            }), 404
+        category_data = request.get_json()
+        validated_category = UpdateCatSchema().load(category_data)
+        if 'name' in validated_category:
+            category.name = validated_category['name'].capitalize()
+        if 'description' in validated_category:
+            category.description = validated_category['description']
+        db.session.commit()
+        return jsonify({
+            "Message": "category updated successfully",
+            "category": {
+                "id:": category.id,
+                "name": category.name,
+                "description": category.description
+            }
+        }), 201
+    except ValidationError as err:
+        return jsonify({"errors": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@cat_bp.route('/category/<category_id>', methods=['GET'])
+@jwt_required()
+def get_category(category_id):
+    """
+    Retrieve a category by ID.
+    Args:
+        category_id (str): The numeric ID of the category.
+    Returns:
+        - 200: JSON with category details if found.
+        - 400: JSON error for invalid ID format.
+        - 404: JSON error if category not found.
+        - 500: JSON error for server issues.
+    """
+    try:
+        category = Category.query.get(category_id)
+        if category:
+            return jsonify({
+                "category": {
+                    "id": category.id,
+                    "name": category.name,
+                    "description": category.description
+                }
+            }), 200
+        return jsonify({
+            "Error": f"category with id {category_id} does not exist"
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@cat_bp.route('/categories', methods=['GET'])
+@jwt_required()
+def get_all_categories():
+    """
+    Retrieve all categories.
+    Returns:
+        JSON response with a list of all categories,
+        or an error message if unsuccessful.
+    """
+    try:
+        categories = Category.query.all()
+        category_list = [
+            {
+                "id": category.id,
+                "name": category.name,
+                "description": category.description
+            } for category in categories
+        ]
+        return jsonify({
+            "categories": category_list
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@cat_bp.route('/category/<int:category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_category(category_id):
+    """
+    Delete a category by ID.
+        Args:
+    category_id (int): The ID of the category to delete.
+    Returns:
+        JSON response confirming deletion,
+        or an error message if the category does not exist.
+    """
+    try:
+        category = Category.query.get(category_id)
+        if category:
+            db.session.delete(category)
+            db.session.commit()
+            return jsonify({
+                "Message": "category deleted successfully"
+            }), 201
+        return jsonify({
+            "Error": f"category with id {category_id} does not exist"
+        }), 404
     except Exception as e:
         db.session.rollback()
         return jsonify({
