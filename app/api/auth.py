@@ -134,9 +134,9 @@ def refresh():
         return jsonify({"Error": str(e)}), 500
 
 
-@auth_bp.route('/auth/update', methods=['PUT'])
+@auth_bp.route('/auth/update/<user_id>', methods=['PUT'])
 @jwt_required()
-def Update_User_Info():
+def Update_User_Info(user_id):
     """Update user info in the database"""
     try:
         if not request.is_json:
@@ -145,30 +145,36 @@ def Update_User_Info():
                 "Unsupported Media Type." +
                 " Content-Type must be application/json."
             }), 415
-        email = get_jwt_identity()
-        current_user = User.query.filter_by(email=email).first()
-        if not current_user:
+        user = User.query.get(user_id)
+        if not user:
             return jsonify({
                 "error":
-                "User not found. Ensure the email is correct."
+                f"User with id {user_id} not found."
             }), 404
         user_data = request.get_json()
         user_info = UpdateUserSchema().load(user_data)
         if 'username' in user_data:
-            current_user.fullname = user_info['fullname']
+            user.fullname = user_info['fullname']
         if 'email' in user_data:
-            current_user.email = user_info['email']
+            user.email = user_info['email']
         if 'role_id' in user_data:
-            current_user.role_id = user_info['role_id']
+            user.role_id = user_info['role_id']
         if 'department_id' in user_data:
-            current_user.department_id = user_info['department_id']
+            user.department_id = user_info['department_id']
         db.session.commit()
+        department = Department.query.get(user.department_id)
+        role = Role.query.get(user.role_id)
+        if department:
+            department_name = department.name
+        else:
+            department_name = "Unknown Department"
+        role_name = role.name if role else "Unknown Role"
         return jsonify({"Success": "User Updated",
                         "Details": {
-                            "role_id": current_user.role_id,
-                            "email": current_user.email,
-                            "fullname": current_user.fullname,
-                            "department_id": current_user.department_id
+                            "role_id": role_name,
+                            "email": user.email,
+                            "fullname": user.fullname,
+                            "department_id": department_name
                         }}), 201
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
@@ -194,12 +200,17 @@ def get_user(user_id):
         if user:
             department = Department.query.get(user.department_id)
             role = Role.query.get(user.role_id)
+            if department:
+                department_name = department.name
+            else:
+                department_name = "Unknown Department"
+            role_name = role.name if role else "Unknown Role"
             return jsonify({
                 "user": {
                     "fullname": user.fullname,
                     "email": user.email,
-                    "department": department.name,
-                    "role": role.name
+                    "department": department_name,
+                    "role": role_name
                 }
             }), 200
         return jsonify({"Error": f"User with id {user_id} not found"}), 404
