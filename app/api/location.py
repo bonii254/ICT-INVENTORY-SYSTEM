@@ -3,7 +3,7 @@ from app.models.v1 import Location
 from app.extensions import db
 from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
-from utils.validations.loc_validate import RegLocSchema
+from utils.validations.loc_validate import RegLocSchema, UpdateLocSchema
 
 
 loc_bp = Blueprint("loc_bp", __name__)
@@ -56,4 +56,139 @@ def create_location():
         db.session.rollback()
         return jsonify({
             "error": f"An unexpected error occured: {str(e)}"
+        }), 500
+
+
+@loc_bp.route('/location/<int:location_id>', methods=['PUT'])
+@jwt_required()
+def update_location(location_id):
+    """
+    Update a location's details by ID.
+    Args:
+        location_id (int): The ID of the location to update.
+    Returns:
+        JSON response with the updated location details,
+        or an error message if unsuccessful.
+    """
+    try:
+        if not location_id.isdigit():
+            return jsonify({"Error": "Invalid location ID format"}), 400
+        if not request.is_json:
+            return jsonify({
+                "error":
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
+            }), 415
+        location = Location.query.get(location_id)
+        if not location:
+            return jsonify({
+                "error": f"location with ID {location_id} not found."
+            }), 404
+        location_data = request.get_json()
+        validated_location = UpdateLocSchema().load(location_data)
+        if 'name' in validated_location:
+            location.name = validated_location['name']
+        if 'address' in validated_location:
+            location.address = validated_location['address']
+        db.session.commit()
+        return jsonify({
+            "Message": "Location updated successfully",
+            "location": {
+                "id:": location.id,
+                "name": location.name,
+                "address": location.address
+            }
+        })
+    except ValidationError as err:
+        return jsonify({"errors": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@loc_bp.route('/location/<int:location_id>', methods=['GET'])
+@jwt_required()
+def get_department(location_id):
+    """
+    Retrieve a specific location by ID.
+    Args:
+        location_id (int): The ID of the location to retrieve.
+    Returns:
+        JSON response with the location details,
+        or an error message if not found.
+    """
+    try:
+        location = Location.query.get(location_id)
+        if not location:
+            return jsonify({
+                "error": f"Location with id {location_id} not found"
+                }), 404
+        return jsonify({
+            "location": {
+                "id:": location.id,
+                "name": location.name,
+                "address": location.address
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@loc_bp.route('/locations', methods=['get'])
+@jwt_required()
+def get_all_locations():
+    """
+    Retrieve all locations.
+    Returns:
+        JSON response with a list of all locations,
+        or an error message if unsuccessful.
+    """
+    try:
+        locations = Location.query.all()
+        location_list = [
+            {
+                "id": location.id,
+                "name": location.name,
+                "address": location.address
+            } for location in locations
+        ]
+        return jsonify({
+            "locations": location_list
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@loc_bp.route('/location/<int:location_id>', methods=['DELETE'])
+@jwt_required()
+def delete_location(location_id):
+    """
+    Delete a location by ID.
+        Args:
+    location_id (int): The ID of the location to delete.
+    Returns:
+        JSON response confirming deletion,
+        or an error message if the location does not exist.
+    """
+    try:
+        location = Location.query.get(location_id)
+        if location:
+            db.session.delete(location)
+            db.session.commit()
+            return jsonify({
+                "Message": "Location deleted successfully"
+            }), 201
+        return jsonify({
+            "Error": f"Location with id {location_id} does not exist"
+        }), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
         }), 500
