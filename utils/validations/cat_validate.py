@@ -17,3 +17,14 @@ class RegCatSchema(ma.Schema):
     def process_Category(self, data, **kwargs):
         data['name'] = data['name'].capitalize()
         return Category(**data)
+
+class UpdateCatSchema(ma.Schema):
+    name = fields.Str(validate=validate.Length(min=1, max=120))
+    description = fields.Str()
+
+    @validates("name")
+    def validate_name(self, value):
+        if value:
+            if Category.query.filter(Category.name.ilike(value)).first():
+                raise ValidationError(
+                    f"Category name '{value}' already exists.")
