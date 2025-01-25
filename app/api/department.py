@@ -105,3 +105,95 @@ def update_department(department_id):
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
+
+
+@dep_bp.route('/department/<department_id>', methods=['GET'])
+@jwt_required()
+def get_department(department_id):
+    """
+    Retrieve a department by ID.
+    Args:
+        department_id (str): The numeric ID of the department.
+    Returns:
+        - 200: JSON with department details if found.
+        - 400: JSON error for invalid ID format.
+        - 404: JSON error if department not found.
+        - 500: JSON error for server issues.
+    """
+    try:
+        if not department_id.isdigit():
+            return jsonify({"Error": "Invalid department ID format"}), 400
+        department = Department.query.get(department_id)
+        if department:
+            return jsonify({
+                "department": {
+                    "id": department.id,
+                    "name": department.name
+                }
+            }), 200
+        return jsonify({
+            "Error": f"Department with id {department_id} doesnot exist"
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@dep_bp.route('/departments', methods=['GET'])
+@jwt_required()
+def get_all_departments():
+    """
+    Retrieve all departments.
+    Returns:
+        - 200: JSON list of all departments.
+        - 500: JSON error for server issues.
+    """
+    try:
+        departments = Department.query.all()
+        department_list = [
+            {
+                "id": department.id,
+                "name": department.name
+            } for department in departments
+        ]
+        return jsonify({
+            "departments": department_list
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@dep_bp.route('/department/<department_id>', methods=['DELETE'])
+@jwt_required()
+def delete_department(department_id):
+    """
+    Delete a department by ID.
+    Args:
+        department_id (str): The numeric ID of the department.
+    Returns:
+        - 200: JSON with department details if found.
+        - 400: JSON error for invalid ID format.
+        - 404: JSON error if department not found.
+        - 500: JSON error for server issues.
+    """
+    try:
+        if not department_id.isdigit():
+            return jsonify({"Error": "Invalid department ID format"}), 400
+        department = Department.query.get(department_id)
+        if department:
+            db.session.delete(department)
+            db.session.commit()
+            return jsonify({
+                "Message": "Department deleted successfully"
+            }), 201
+        return jsonify({
+            "Error": f"Department with id {department_id} doesnot exist"
+        }), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
