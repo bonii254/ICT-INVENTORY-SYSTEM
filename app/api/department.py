@@ -190,7 +190,7 @@ def delete_department(department_id):
                 "Message": "Department deleted successfully"
             }), 201
         return jsonify({
-            "Error": f"Department with id {department_id} doesnot exist"
+            "Error": f"Department with id {department_id} does not exist"
         }), 404
     except Exception as e:
         db.session.rollback()
