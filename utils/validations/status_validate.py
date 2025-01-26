@@ -16,3 +16,14 @@ class RegStatusSchema(ma.Schema):
     def process_role(self, data, **kwargs):
         data['name'] = data['name'].capitalize()
         return data
+
+
+class UpdatestatusSchema(ma.Schema):
+    name = fields.Str(validate=validate.Length(min=1, max=120))
+    description = fields.Str()
+
+    @validates("name")
+    def validate_fields(self, value):
+        if value:
+            if Status.query.filter(Status.name.ilike(value)).first():
+                raise ValidationError(f"Status name '{value}' already exists.")
