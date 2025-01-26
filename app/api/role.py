@@ -32,7 +32,8 @@ def create_role():
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. Content-Type must be application/json."
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
             }), 415
         role_data = request.get_json()
         new_role = RegRoleSchema().load(role_data)
@@ -78,7 +79,8 @@ def update_role(role_id):
         if not request.is_json:
             return jsonify({
                 "error":
-                "Unsupported Media Type. Content-Type must be application/json."
+                "Unsupported Media Type." +
+                    " Content-Type must be application/json."
             }), 415
         role = Role.query.get(role_id)
         if not role:
@@ -108,3 +110,88 @@ def update_role(role_id):
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
 
+
+@role_bp.route('/role/<int:role_id>', methods=['GET'])
+@jwt_required()
+def get_role(role_id):
+    """
+    Retrieve a specific role by ID.
+    Args:
+        role_id (int): The ID of the role to retrieve.
+    Returns:
+        JSON response with the role details,
+        or an error message if not found.
+    """
+    try:
+        role = Role.query.get(role_id)
+        if not role:
+            return jsonify({
+                "error": f"role with id {role_id} not found"
+                }), 404
+        return jsonify({
+            "role": {
+                "id:": role.id,
+                "name": role.name,
+                "permissions": role.permissions
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@role_bp.route('/roles', methods=['GET'])
+@jwt_required()
+def get_all_roles():
+    """
+    Retrieve all roles.
+    Returns:
+        JSON response with a list of all roles,
+        or an error message if unsuccessful.
+    """
+    try:
+        roles = Role.query.all()
+        role_list = [
+            {
+                "id": role.id,
+                "name": role.name,
+                "permissions": role.permissions
+            } for role in roles
+        ]
+        return jsonify({
+            "roles": role_list
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@role_bp.route('/role/<int:role_id>', methods=['DELETE'])
+@jwt_required()
+def delete_role(role_id):
+    """
+    Delete a role by ID.
+        Args:
+    role_id (int): The ID of the role to delete.
+    Returns:
+        JSON response confirming deletion,
+        or an error message if the role does not exist.
+    """
+    try:
+        role = Role.query.get(role_id)
+        if role:
+            db.session.delete(role)
+            db.session.commit()
+            return jsonify({
+                "Message": "role deleted successfully"
+            }), 201
+        return jsonify({
+            "Error": f"role with id {role_id} does not exist"
+        }), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
