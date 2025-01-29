@@ -276,7 +276,7 @@ class Asset(TimestampMixin, db.Model):
             'departments.id', ondelete="SET NULL"), nullable=True)
 
 
-class Software(db.Model):
+class Software(TimestampMixin, db.Model):
     """
     Represents software associated with an asset in the system.
 
@@ -300,6 +300,20 @@ class Software(db.Model):
         secondary=software_asset_association,
         back_populates='software'
     )
+
+    def to_dict(self):
+        """
+        Converts the Software instance into a dictionary for JSON serialization.
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
+            "license_key": self.license_key,
+            "expiry_date": self.expiry_date.strftime("%Y-%m-%d"),
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
 
 
 class AssetLifecycle(TimestampMixin, db.Model):
