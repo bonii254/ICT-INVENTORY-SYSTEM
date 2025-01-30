@@ -41,8 +41,6 @@ class AssetTransfer(TimestampMixin, db.Model):
         transferred_to (int):
             The foreign key referencing the user receiving the asset,
                 can be null.
-        transfer_date (datetime):
-            The date and time when the asset transfer occurred, required.
         notes (str): Any additional notes related to the transfer.
     """
     __tablename__ = 'asset_transfers'
@@ -63,6 +61,20 @@ class AssetTransfer(TimestampMixin, db.Model):
         db.Integer, db.ForeignKey(
             'users.id', ondelete="SET NULL"), nullable=False)
     notes = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "asset": self.asset.name if self.asset else None,
+            "from_location": self.from_location.name if \
+                self.from_location else None,
+            "to_location": self.to_location.name if self.to_location else None,
+            "transferred_from":self.sender.fullname if self.sender else None,
+            "transferred_to": self.receiver.fullname if self.receiver else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }
 
 
 class Category(TimestampMixin, db.Model):
@@ -274,6 +286,10 @@ class Asset(TimestampMixin, db.Model):
     department_id = db.Column(
         db.Integer, db.ForeignKey(
             'departments.id', ondelete="SET NULL"), nullable=True)
+    transfers = db.relationship(
+        'AssetTransfer',
+        backref='asset',
+        cascade="all, delete-orphan", lazy=True)
 
 
 class Software(TimestampMixin, db.Model):
