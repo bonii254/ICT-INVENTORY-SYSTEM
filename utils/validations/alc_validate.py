@@ -34,3 +34,24 @@ class RegAlcSchema(ma.Schema):
         """
         if not value.strip():
             raise ValidationError("The 'event' field cannot be empty.")
+
+
+class UpdateAlcSchema(ma.Schema):
+    asset_id = fields.Int()
+    event = fields.String(
+        validate=validate.Length(max=255),
+    )
+    notes = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=1000)
+    )
+
+    @validates("asset_id")
+    def validate_asset_id(self, value):
+        """
+        Ensure the asset_id exists in the database.
+        """
+        if value:
+            if not Asset.query.get(value):
+                raise ValidationError(f"Asset with id {value} does not exist.")
