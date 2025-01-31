@@ -353,6 +353,19 @@ class AssetLifecycle(TimestampMixin, db.Model):
     event = db.Column(db.String(255), nullable=False)
     notes = db.Column(db.Text)
 
+    def to_dict(self):
+        """Convert AssetLifecycle object to dictionary."""
+        return {
+            "id": self.id,
+            "asset_id": self.asset_id,
+            "event": self.event,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() \
+                if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() \
+                if self.updated_at else None
+        }
+
 
 class Ticket(TimestampMixin, db.Model):
     """
