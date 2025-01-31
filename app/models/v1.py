@@ -69,7 +69,7 @@ class AssetTransfer(TimestampMixin, db.Model):
             "from_location": self.from_location.name if \
                 self.from_location else None,
             "to_location": self.to_location.name if self.to_location else None,
-            "transferred_from":self.sender.fullname if self.sender else None,
+            "transferred_from": self.sender.fullname if self.sender else None,
             "transferred_to": self.receiver.fullname if self.receiver else None,
             "notes": self.notes,
             "created_at": self.created_at.isoformat(),
