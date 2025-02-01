@@ -38,6 +38,7 @@ def register_consumable():
             category=validated_consumable_info['category'],
             brand=validated_consumable_info['brand'],
             model=validated_consumable_info['model'],
+            quantity=validated_consumable_info['quantity'],
             unit_of_measure=validated_consumable_info['unit_of_measure'],
             reorder_level=validated_consumable_info['reorder_level']
         )
@@ -209,3 +210,46 @@ def delete_consumable(id):
         return jsonify({
             "error": f"An unexpected error occured: {str(e)}"
         }), 500
+
+
+@consumables_bp.route('/consumables/search', methods=['Get'])
+@jwt_required()
+def search_consumables():
+    """
+    Searches for consumables based on optional query parameters:
+    'name', 'category', and 'brand'.
+    Returns a list of consumables that match the provided search criteria.
+
+    Query Parameters:
+    - name (str): The name of the consumable to search for.
+    - category (str): The category of the consumable to search for.
+    - brand (str): The brand of the consumable to search for.
+
+    Returns:
+    - 200 OK: A JSON response containing a list of matching consumables.
+    - 500 Internal Server Error: If an unexpected error occurs
+        during the search process.
+    """
+    try:
+        name = request.args.get('name', None)
+        category = request.args.get('category', None)
+        brand = request.args.get('brand', None)
+
+        query = Consumables.query
+
+        if name:
+            query = query.filter(Consumables.name.ilike(f"%{name}%"))
+        if category:
+            query = query.filter(Consumables.category.ilike(f"%{category}%"))
+        if brand:
+            query = query.filter(Consumables.brand.ilike(f"%{brand}%"))
+
+        consumables = query.all()
+
+        return jsonify({
+            "consumables":
+            [consumable.to_dict() for consumable in consumables]
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"}), 500
