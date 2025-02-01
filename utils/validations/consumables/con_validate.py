@@ -18,14 +18,20 @@ class RegConSchema(ma.Schema):
         required=True,
         error_messages={"required": "Brand is required."})
     model = fields.String()
+    quantity = fields.Integer(
+        required=False,
+        validate=lambda x: x >= 0 if x is not None else True,
+        error_messages={
+            "invalid": "Quantity level must be a non-negative integer."
+        }
+    )
     unit_of_measure = fields.String(
         required=True,
         error_messages={"required": "Unit of measure is required."})
     reorder_level = fields.Integer(
         required=True,
         validate=lambda x: x >= 0,
-        error_messages={"required": "Reorder level is required.", \
-                        "invalid":
+        error_messages={"invalid":
                         "Reorder level must be a non-negative integer."}
     )
 
@@ -44,11 +50,18 @@ class UpdateConSchema(ma.Schema):
     category = fields.String()
     brand = fields.String()
     model = fields.String()
+    quantity = fields.Integer(
+        required=False,
+        validate=lambda x: x >= 0 if x is not None else True,
+        error_messages={
+            "invalid": "Quantity level must be a non-negative integer."
+        }
+    )
     unit_of_measure = fields.String()
     reorder_level = fields.Integer(
         validate=lambda x: x >= 0,
         error_messages={"invalid":
-                        "Reorder level must be a non-negative integer."}
+                        "Quantity level must be a non-negative integer."}
     )
 
     @validates('name')
