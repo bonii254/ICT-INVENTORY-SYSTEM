@@ -133,7 +133,11 @@ class User(TimestampMixin, db.Model):
         foreign_keys='AssetTransfer.transferred_to',
         backref='receiver'
     )
-
+    stock_transactions = db.relationship(
+        'StockTransaction',
+        backref='user',
+        cascade="all, delete-orphan"
+    )
 
 class Role(TimestampMixin, db.Model):
     """
@@ -167,6 +171,10 @@ class Department(TimestampMixin, db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     users = db.relationship('User', backref='department', lazy=True)
     assets = db.relationship('Asset', backref='department', lazy=True)
+    transactions = db.relationship(
+        'StockTransaction',
+        backref='department',
+        cascade="all, delete-orphan")
 
 
 class Location(TimestampMixin, db.Model):
@@ -394,3 +402,72 @@ class Ticket(TimestampMixin, db.Model):
     status = db.Column(db.String(50), nullable=False, default="Open")
     description = db.Column(db.Text, nullable=False)
     resolution_notes = db.Column(db.Text)
+
+
+class Consumables(TimestampMixin, db.Model):
+    __tablename__ = 'consumables'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+    category = db.Column(db.String(100))
+    brand = db.Column(db.String(100))
+    model = db.Column(db.String(100))
+    unit_of_measure = db.Column(db.String(50))
+    reorder_level = db.Column(db.Integer, default=10)
+    quantity = db.Column(db.Integer, default=0)
+    transactions = db.relationship(
+        'StockTransaction', backref='consumable',
+        cascade="all, delete-orphan")
+    alerts = db.relationship(
+        'Alert', backref='consumable',
+        cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'category': self.category,
+            'brand': self.brand,
+            'model': self.model,
+            "quantity": self.quantity,
+            'unit_of_measure': self.unit_of_measure,
+            'reorder_level': self.reorder_level
+        }
+
+
+class StockTransaction(TimestampMixin, db.Model):
+    __tablename__ = 'stock_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    consumable_id = db.Column(
+        db.Integer, db.ForeignKey('consumables.id'), nullable=False)
+    department_id = db.Column(
+        db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    transaction_type = db.Column(
+        db.Enum('IN', 'OUT', name="transaction_type"), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'consumable_id': self.consumable_id,
+            'department_id': self.department_id,
+            'transaction_type': self.transaction_type,
+            'quantity': self.quantity,
+            'user_id': self.user_id,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
+
+
+class Alert(TimestampMixin, db.Model):
+    __tablename__ = 'alerts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    consumable_id = db.Column(
+        db.Integer, db.ForeignKey('consumables.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status = db.Column(db.Enum(
+        'PENDING', 'RESOLVED', name="alert_status"), default='PENDING')
