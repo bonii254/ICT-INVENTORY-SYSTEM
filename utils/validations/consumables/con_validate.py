@@ -29,4 +29,32 @@ class RegConSchema(ma.Schema):
                         "Reorder level must be a non-negative integer."}
     )
 
+    @validates('name')
+    def validate_name(self, value):
+        """Ensure name is unique"""
+        if Consumables.query.filter_by(name=value).first():
+            raise ValidationError(f"Consumable name '{value}' already exist.")
 
+
+class UpdateConSchema(ma.Schema):
+    """
+    Schema for validating consumable update
+    """
+    name = fields.String()
+    category = fields.String()
+    brand = fields.String()
+    model = fields.String()
+    unit_of_measure = fields.String()
+    reorder_level = fields.Integer(
+        validate=lambda x: x >= 0,
+        error_messages={"invalid":
+                        "Reorder level must be a non-negative integer."}
+    )
+
+    @validates('name')
+    def validate_name(self, value):
+        """Ensure name is unique"""
+        if value:
+            if Consumables.query.filter_by(name=value).first():
+                raise ValidationError(
+                    f"Consumable name '{value}' already exist.")
