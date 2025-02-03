@@ -445,7 +445,7 @@ class StockTransaction(TimestampMixin, db.Model):
         db.Integer, db.ForeignKey('departments.id'), nullable=False)
     transaction_type = db.Column(
         db.Enum('IN', 'OUT', name="transaction_type"), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=0)
     user_id = db.Column(
         db.Integer, db.ForeignKey('users.id'), nullable=False)
 
