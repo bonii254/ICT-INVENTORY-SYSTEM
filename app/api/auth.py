@@ -20,7 +20,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.18.208.6',
+                host='172.30.19.183',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -81,8 +81,8 @@ def login():
         password = user_info.get('password')
         user = User.query.filter_by(email=email).first()
         if user and bcrypt.check_password_hash(user.password, password):
-            access_token = create_access_token(identity=user.email)
-            refresh_token = create_refresh_token(identity=user.email)
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
             return jsonify({
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -125,7 +125,7 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
 def refresh():
     """Refresh the access token using the refresh token"""
     try:
-        current_user = get_jwt_identity()
+        current_user = str(get_jwt_identity())
         new_access_token = create_access_token(identity=current_user)
         return jsonify({
             "access_token": new_access_token
