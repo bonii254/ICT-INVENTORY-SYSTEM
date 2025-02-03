@@ -10,7 +10,7 @@ from app.api.category import cat_bp
 from app.api.assettransfer import at_bp
 from app.api.assetlifecycle import alc_bp
 from app.api.consumables.consumable import consumables_bp
-from app.api.consumables.StockTransaction import stocktrans_bp
+from app.api.consumables.stocktransaction import stocktrans_bp
 def register_blueprints(app):
     """
     Register all blueprints with the Flask application.
