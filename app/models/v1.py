@@ -452,11 +452,11 @@ class StockTransaction(TimestampMixin, db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'consumable_id': self.consumable_id,
-            'department_id': self.department_id,
+            'consumable': self.consumable.name if self.consumable else None,
+            'department': self.department.name if self.department else None,
             'transaction_type': self.transaction_type,
             'quantity': self.quantity,
-            'user_id': self.user_id,
+            'user': self.user.fullname if self.user else None,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
