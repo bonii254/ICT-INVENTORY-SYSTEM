@@ -239,3 +239,35 @@ def delete_transaction(transaction_id):
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
+
+
+@stocktrans_bp.route('/alerts', methods=['GET'])
+@jwt_required()
+def get_all_alerts():
+    """
+    Retrieves all active (pending) alerts.
+    """
+    try:
+        alerts = Alert.query.all()
+        return jsonify([alert.to_dict() for alert in alerts]), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@stocktrans_bp.route('/alerts/pending', methods=['get'])
+@jwt_required()
+def get_pending_alerts():
+    """
+    Retrieves all active (pending) alerts.
+    """
+    try:
+        alerts = Alert.query.filter_by(status="PENDING").all()
+        return jsonify([alert.to_dict() for alert in alerts]), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
