@@ -8,14 +8,6 @@ class RegAssetSchema(Schema):
     """
     Marshmallow schema for validating Asset creation data.
     """
-    name = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=255),
-        error_messages={
-            "required": "The 'name' field is required.",
-            "null": "The 'name' field cannot be null."
-        }
-    )
     ip_address = fields.Str(
         required=False,
         validate=validate.Length(min=7, max=45),
