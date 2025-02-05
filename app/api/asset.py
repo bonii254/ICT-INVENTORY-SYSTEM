@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
+from sqlalchemy import and_
 from marshmallow import ValidationError
 from app.models.v1 import Asset, User, Location, Department, Status, Category
 from app.extensions import db
@@ -61,9 +62,21 @@ def create_asset():
             new_number = "001"
         asset_tag = f"{base_tag}{new_number}"
 
+        location = Location.query.get(asset_info["location_id"]).name[:4]
+        department = Department.query.get(asset_info["department_id"]).name[:4]
+        base_name = f"{location.capitalize()}{department.capitalize()}{category_suffix.capitalize()}"
+        latest_asset_name = Asset.query.filter(
+            Asset.name.like(f"{base_name}%")).order_by(
+                Asset.name.desc()).first()
+        if latest_asset_name:
+            last_number = int(latest_asset_name.name[-2:])
+            new_number = str(last_number + 1).zfill(2)
+        else:
+            new_number = "01"
+        asset_name = f"{base_name}{new_number}"
         new_asset = Asset(
             asset_tag=asset_tag,
-            name=asset_info["name"],
+            name=asset_name,
             ip_address=asset_info["ip_address"],
             mac_address=asset_info["mac_address"],
             category_id=asset_info["category_id"],
@@ -103,6 +116,89 @@ def create_asset():
 
     except ValidationError as err:
         return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@asset_bp.route("/assets", methods=["GET"])
+@jwt_required()
+def get_all_asset():
+    """
+    """
+    try:
+        assets = Asset.query.all()
+        return jsonify({"assets":
+                        [asset.to_dict() for asset in assets]
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@asset_bp.route("/assets/search", methods=["GET"])
+@jwt_required()
+def search_assets():
+    """
+    """
+    try:
+        name = request.args.get('name', None, type=str)
+        asset_tag = request.args.get('asset_tag', None, type=str)
+        ip_address = request.args.get('ip_address', None, type=str)
+        mac_address = request.args.get('mac_address', None, type=str)
+        category = request.args.get('category', None, type=str)
+        assigned_to = request.args.get('assigned_to', None, type=str)
+        location = request.args.get('location', None, type=str)
+        department = request.args.get('department', None, type=str)
+        page = request.args.get('page', type=int, default=1)
+        per_page = request.args.get('per_page', type=int, default=10)
+
+        query = (
+            db.session.query(Asset)
+            .join(User, Asset.assigned_to == User.id)
+            .join(Category, Asset.category_id == Category.id)
+            .join(Location, Asset.location_id == Location.id)
+            .join(Department, Asset.department_id == Department.id)
+        )
+        assets = query.all()
+        filters = []
+
+        if name:
+            filters.append(Asset.name.ilike(f"%{name}%"))
+        if asset_tag:
+            filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
+        if ip_address:
+            filters.append(Asset.ip_address.ilike(f"%{ip_address}%"))
+        if mac_address:
+            filters.append(Asset.mac_address.ilike(f"%{mac_address}%"))
+        if category:
+            filters.append(Category.name.ilike(f"%{category}%"))
+        if assigned_to:
+            filters.append(User.fullname.ilike(f"%{name}%"))
+        if location:
+            filters.append(Location.name.ilike(f"%{location}%"))
+        if department:
+            filters.append(Department.name.ilike(f"%{department}%"))
+
+        if filters:
+            query = query.filter(and_(*filters))
+
+        assets = db.paginate(
+            query, page=page, per_page=per_page, error_out=False
+        )
+
+        response = {
+            "assets": [asset.to_dict() for asset in assets.items],
+            "total": assets.total,
+            "page": assets.page,
+            "per_page": assets.per_page,
+            "pages": assets.pages
+        }
+        return jsonify(response), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({
