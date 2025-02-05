@@ -299,7 +299,23 @@ class Asset(TimestampMixin, db.Model):
         backref='asset',
         cascade="all, delete-orphan", lazy=True)
 
-
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "asset tag": self.asset_tag,
+            "ip_address": self.ip_address,
+            "mac_address": self.mac_address,
+            "category": self.category.name if self.category else None,
+            "assigned_to": self.user.fullname if self.user else None,
+            "location": self.location.name if self.location else None,
+            "status": self.status.name if self.status else None,
+            "purchase_date": self.purchase_date,
+            "warranty_expiry": self.warranty_expiry,
+            "configuration": self.configuration,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
 class Software(TimestampMixin, db.Model):
     """
     Represents software associated with an asset in the system.
@@ -471,3 +487,11 @@ class Alert(TimestampMixin, db.Model):
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Enum(
         'PENDING', 'RESOLVED', name="alert_status"), default='PENDING')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'consumable': self.consumable.name if self.consumable else None,
+            'message': self.message,
+            'status': self.status
+        }
