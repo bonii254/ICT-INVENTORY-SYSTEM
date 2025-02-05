@@ -129,62 +129,68 @@ def search_transaction():
         - 400: Invalid date format in `start_date` or `end_date`.
         - 500: Internal server error if an unexpected error occurs.
     """
-    fullname = request.args.get("fullname", None, type=str)
-    department_name = request.args.get("department_name", None, type=str)
-    transaction_type = request.args.get("transaction_type", None, type=str)
-    consumable_name = request.args.get("consumable_name", None, type=str)
-    start_date = request.args.get('start_date', type=str)
-    end_date = request.args.get('end_date', type=str)
-    page = request.args.get('page', type=int, default=1)
-    per_page = request.args.get('per_page', type=int, default=10)
+    try:
+        fullname = request.args.get("fullname", None, type=str)
+        department_name = request.args.get("department_name", None, type=str)
+        transaction_type = request.args.get("transaction_type", None, type=str)
+        consumable_name = request.args.get("consumable_name", None, type=str)
+        start_date = request.args.get('start_date', type=str)
+        end_date = request.args.get('end_date', type=str)
+        page = request.args.get('page', type=int, default=1)
+        per_page = request.args.get('per_page', type=int, default=10)
 
-    query = (
-        db.session.query(StockTransaction)
-        .join(User, StockTransaction.user_id == User.id)
-        .join(Consumables, StockTransaction.consumable_id == Consumables.id)
-        .join(Department, StockTransaction.department_id == Department.id)
-    )
-    transactions = query.all()
-    print(transactions)
-    filters = []
+        query = (
+            db.session.query(StockTransaction)
+            .join(User, StockTransaction.user_id == User.id)
+            .join(Consumables, StockTransaction.consumable_id == Consumables.id)
+            .join(Department, StockTransaction.department_id == Department.id)
+        )
+        transactions = query.all()
+        print(transactions)
+        filters = []
 
-    if fullname:
-        filters.append(User.fullname.ilike(f"%{fullname}%"))
-    if department_name:
-        filters.append(Department.name.ilike(f"%{department_name}%"))
-    if transaction_type:
-        filters.append(StockTransaction.transaction_type == transaction_type)
-    if consumable_name:
-        filters.append(Consumables.name.ilike(f"%{consumable_name}%"))
-    if start_date:
-        try:
-            start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
-            filters.append(StockTransaction.created_at >= start_date_obj)
-        except ValueError:
-            return jsonify({
-                "error": "Invalid start_date format. Use YYYY-MM-DD."}), 400
-    if end_date:
-        try:
-            end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-            filters.append(StockTransaction.created_at <= end_date_obj)
-        except ValueError:
-            return jsonify({
-                "error": "Invalid end_date format. Use YYYY-MM-DD."}), 400
-    if filters:
-        query = query.filter(and_(*filters))
+        if fullname:
+            filters.append(User.fullname.ilike(f"%{fullname}%"))
+        if department_name:
+            filters.append(Department.name.ilike(f"%{department_name}%"))
+        if transaction_type:
+            filters.append(StockTransaction.transaction_type == transaction_type)
+        if consumable_name:
+            filters.append(Consumables.name.ilike(f"%{consumable_name}%"))
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                filters.append(StockTransaction.created_at >= start_date_obj)
+            except ValueError:
+                return jsonify({
+                    "error": "Invalid start_date format. Use YYYY-MM-DD."}), 400
+        if end_date:
+            try:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                filters.append(StockTransaction.created_at <= end_date_obj)
+            except ValueError:
+                return jsonify({
+                    "error": "Invalid end_date format. Use YYYY-MM-DD."}), 400
+        if filters:
+            query = query.filter(and_(*filters))
 
-    transactions = db.paginate(
-        query, page=page, per_page=per_page, error_out=False)
+        transactions = db.paginate(
+            query, page=page, per_page=per_page, error_out=False)
 
-    response = {
-        "transactions": [t.to_dict() for t in transactions.items],
-        "total": transactions.total,
-        "page": transactions.page,
-        "per_page": transactions.per_page,
-        "pages": transactions.pages
-    }
+        response = {
+            "transactions": [t.to_dict() for t in transactions.items],
+            "total": transactions.total,
+            "page": transactions.page,
+            "per_page": transactions.per_page,
+            "pages": transactions.pages
+        }
 
-    return jsonify(response), 200
+        return jsonify(response), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
 
 
 @stocktrans_bp.route(
