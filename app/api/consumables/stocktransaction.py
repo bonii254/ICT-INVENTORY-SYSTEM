@@ -142,7 +142,8 @@ def search_transaction():
         query = (
             db.session.query(StockTransaction)
             .join(User, StockTransaction.user_id == User.id)
-            .join(Consumables, StockTransaction.consumable_id == Consumables.id)
+            .join(
+                Consumables, StockTransaction.consumable_id == Consumables.id)
             .join(Department, StockTransaction.department_id == Department.id)
         )
         transactions = query.all()
@@ -154,16 +155,19 @@ def search_transaction():
         if department_name:
             filters.append(Department.name.ilike(f"%{department_name}%"))
         if transaction_type:
-            filters.append(StockTransaction.transaction_type == transaction_type)
+            filters.append(
+                StockTransaction.transaction_type == transaction_type)
         if consumable_name:
             filters.append(Consumables.name.ilike(f"%{consumable_name}%"))
         if start_date:
             try:
-                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                start_date_obj = datetime.strptime(
+                    start_date, "%Y-%m-%d").date()
                 filters.append(StockTransaction.created_at >= start_date_obj)
             except ValueError:
                 return jsonify({
-                    "error": "Invalid start_date format. Use YYYY-MM-DD."}), 400
+                    "error": "Invalid start_date format. Use YYYY-MM-DD."
+                }), 400
         if end_date:
             try:
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
