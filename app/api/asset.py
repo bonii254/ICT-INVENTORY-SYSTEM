@@ -63,8 +63,10 @@ def create_asset():
         asset_tag = f"{base_tag}{new_number}"
 
         location = Location.query.get(asset_info["location_id"]).name[:4]
+        location = location.capitalize()
         department = Department.query.get(asset_info["department_id"]).name[:4]
-        base_name = f"{location.capitalize()}{department.capitalize()}{category_suffix.capitalize()}"
+        department = department.capitalize()
+        base_name = f"{location}-{department}-{category_suffix.capitalize()}"
         latest_asset_name = Asset.query.filter(
             Asset.name.like(f"{base_name}%")).order_by(
                 Asset.name.desc()).first()
@@ -127,12 +129,15 @@ def create_asset():
 @jwt_required()
 def get_all_asset():
     """
+    Retrieve all assets from the database.
+    Returns:
+        - 200 OK: A JSON response containing a list of all assets.
+        - 500 Internal Server Error: If an exception occurs.
     """
     try:
         assets = Asset.query.all()
-        return jsonify({"assets":
-                        [asset.to_dict() for asset in assets]
-        }), 200
+        return jsonify({
+            "assets": [asset.to_dict() for asset in assets]}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({
@@ -144,6 +149,13 @@ def get_all_asset():
 @jwt_required()
 def search_assets():
     """
+    Search for assets based on various optional filters, including name,
+    asset tag, IP address, MAC address, category, assigned user, location,
+    and department.
+
+    Returns:
+        - 200 OK: A paginated list of assets matching the filters.
+        - 500 Internal Server Error: If an exception occurs.
     """
     try:
         name = request.args.get('name', None, type=str)
@@ -164,7 +176,7 @@ def search_assets():
             .join(Location, Asset.location_id == Location.id)
             .join(Department, Asset.department_id == Department.id)
         )
-        assets = query.all()
+
         filters = []
 
         if name:
@@ -178,7 +190,7 @@ def search_assets():
         if category:
             filters.append(Category.name.ilike(f"%{category}%"))
         if assigned_to:
-            filters.append(User.fullname.ilike(f"%{name}%"))
+            filters.append(User.fullname.ilike(f"%{assigned_to}%"))
         if location:
             filters.append(Location.name.ilike(f"%{location}%"))
         if department:
@@ -187,9 +199,7 @@ def search_assets():
         if filters:
             query = query.filter(and_(*filters))
 
-        assets = db.paginate(
-            query, page=page, per_page=per_page, error_out=False
-        )
+        assets = query.paginate(page=page, per_page=per_page, error_out=False)
 
         response = {
             "assets": [asset.to_dict() for asset in assets.items],
