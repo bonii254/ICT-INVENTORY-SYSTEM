@@ -20,7 +20,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.30.19.183',
+                host='172.20.186.24',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -95,11 +95,13 @@ def login():
             }), 200
         else:
             return jsonify({"message": "Invalid email or password"}), 401
-    except ValidationError as e:
-        return jsonify({"Error": e.messages}), 400
+    except ValidationError as err:
+        return jsonify({"error": err.messages}), 400
     except Exception as e:
-        return jsonify({"Error": "An unexpected error occured."}), 500
-
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
 
 @auth_bp.route('/auth/logout', methods=['POST'])
 @jwt_required()
@@ -175,12 +177,18 @@ def Update_User_Info(user_id):
                             "email": user.email,
                             "fullname": user.fullname,
                             "department_id": department_name
-                        }}), 201
+                        }}), 200
+
+    except ValidationError as err:
+        return jsonify({"error": err.messages}), 400
     except Exception as e:
-        return jsonify({"Error": str(e)}), 500
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
 
 
-@auth_bp.route('/user/<user_id>', methods=['GET'])
+@auth_bp.route('/user/<int:user_id>', methods=['GET'])
 @jwt_required()
 def get_user(user_id):
     """
