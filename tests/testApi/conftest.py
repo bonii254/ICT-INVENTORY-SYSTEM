@@ -1,5 +1,5 @@
 import pytest
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, create_refresh_token
 from app import create_app
 from app.extensions import db
 from app.models.v1 import Department, Role, User
@@ -52,4 +52,14 @@ def user_client(client, app):
         user = User.query.filter_by(email="bonnyrangi95@gmail.com").first()
         access_token = create_access_token(identity=str(user.id))
 
-    return client, {"autherization": f"Bearer {access_token}"}
+    return client, {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture()
+def refresh_client(client, app):
+    """refreshing access token."""
+    with app.app_context():
+        user = User.query.filter_by(email="bonnyrangi95@gmail.com").first()
+        refresh_token = create_refresh_token(identity=str(user.id))
+
+    return client, {"Authorization": f"Bearer {refresh_token}"}
