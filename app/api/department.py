@@ -10,7 +10,7 @@ dep_bp = Blueprint("dep_bp", __name__)
 
 
 @dep_bp.route('/register/department', methods=['POST'])
-@jwt_required()
+#@jwt_required()
 def create_department():
     """
     Create a new Department.
@@ -123,7 +123,7 @@ def get_department(department_id):
     try:
         if not department_id.isdigit():
             return jsonify({"Error": "Invalid department ID format"}), 400
-        department = Department.query.get(department_id)
+        department = db.session.get(Department, department_id)
         if department:
             return jsonify({
                 "department": {
@@ -182,13 +182,13 @@ def delete_department(department_id):
     try:
         if not department_id.isdigit():
             return jsonify({"Error": "Invalid department ID format"}), 400
-        department = Department.query.get(department_id)
+        department = db.session.get(Department, department_id)
         if department:
             db.session.delete(department)
             db.session.commit()
             return jsonify({
                 "Message": "Department deleted successfully"
-            }), 201
+            }), 200
         return jsonify({
             "Error": f"Department with id {department_id} does not exist"
         }), 404
