@@ -2,7 +2,7 @@ import pytest
 from flask_jwt_extended import create_access_token, create_refresh_token
 from app import create_app
 from app.extensions import db
-from app.models.v1 import Department, Role, User
+from app.models.v1 import Department, Role, User, Category
 
 
 @pytest.fixture()
@@ -21,6 +21,13 @@ def app():
             permissions="create,read,update,delete,approve"
         )
         db.session.add(role)
+        db.session.commit()
+
+        category = Category(
+            name="networking",
+            description="All networking devices"
+        )
+        db.session.add(category)
         db.session.commit()
 
         user = User(
