@@ -75,7 +75,7 @@ def test_empty_department_id(user_client):
 
 
 def test_database_error_handling(user_client, mocker):
-    """Test database failure during registration"""
+    """Test database failure during detting department"""
     client, headers = user_client
     mocker.patch(
         "app.extensions.db.session.get", side_effect=Exception("DB Error"))
