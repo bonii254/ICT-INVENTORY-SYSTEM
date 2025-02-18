@@ -6,16 +6,16 @@ def test_create_category_success(user_client):
     """Test creating a new category with valid data."""
     client, headers = user_client
     payload = {
-        "name": "networking",
-        "description": "All networking devices"
+        "name": "computing",
+        "description": "All computing devices"
     }
     response = client.post('/register/category', json=payload, headers=headers)
     assert response.status_code == 201
     assert "Category registered successfully!" \
         in response.get_json()["message"]
     assert 'Category' in response.json
-    assert response.json['Category']['name'] == "Networking"
-    assert response.json['Category']['description'] == "All networking devices"
+    assert response.json['Category']['name'] == "Computing"
+    assert response.json['Category']['description'] == "All computing devices"
 
 
 def test_create_category_invalid_json(user_client):
@@ -80,8 +80,8 @@ def test_create_category_database_error(user_client, mocker):
     """Test if there is a database error (e.g., commit failure)."""
     client, headers = user_client
     payload = {
-        "name": "networking",
-        "description": "All networking devices"
+        "name": "computing",
+        "description": "All computing devices"
     }
     mocker.patch(
         'app.db.session.commit', side_effect=Exception(
