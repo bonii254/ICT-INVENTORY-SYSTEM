@@ -2,7 +2,7 @@ import pytest
 from flask_jwt_extended import create_access_token, create_refresh_token
 from app import create_app
 from app.extensions import db
-from app.models.v1 import Department, Role, User, Category
+from app.models.v1 import Department, Role, User, Category, Location
 
 
 @pytest.fixture()
@@ -12,34 +12,7 @@ def app():
 
     with app.app_context():
         db.create_all()
-        dept = Department(name="ICT")
-        db.session.add(dept)
-        db.session.commit()
-
-        role = Role(
-            name="admin",
-            permissions="create,read,update,delete,approve"
-        )
-        db.session.add(role)
-        db.session.commit()
-
-        category = Category(
-            name="networking",
-            description="All networking devices"
-        )
-        db.session.add(category)
-        db.session.commit()
-
-        user = User(
-            email="bonnyrangi95@gmail.com",
-            password="s3cur3p@ss??",
-            fullname="Boniface Murangiri",
-            department_id=dept.id,
-            role_id=role.id
-        )
-        db.session.add(user)
-        db.session.commit()
-
+        seed_test_data()
     yield app
 
     with app.app_context():
@@ -70,3 +43,26 @@ def refresh_client(client, app):
         refresh_token = create_refresh_token(identity=str(user.id))
 
     return client, {"Authorization": f"Bearer {refresh_token}"}
+
+
+def seed_test_data():
+    """Helper function to seed test data into the database."""
+    dept = Department(name="ICT")
+    role = Role(name="admin", permissions="create,read,update,delete,approve")
+    location = Location(name="Plant", address="Githunguri")
+    category = Category(
+        name="networking", description="All networking devices")
+    user = User(
+        email="bonnyrangi95@gmail.com",
+        password="s3cur3p@ss??",
+        fullname="Boniface Murangiri",
+        department_id=1,
+        role_id=1
+    )
+
+    db.session.add_all([dept, role, location, category])
+    db.session.commit()
+    user.department_id = dept.id
+    user.role_id = role.id
+    db.session.add(user)
+    db.session.commit()
