@@ -73,7 +73,7 @@ def update_category(category_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        category = Category.query.get(category_id)
+        category = db.session.get(Category, category_id)
         if not category:
             return jsonify({
                 "error": f"category with ID {category_id} not found."
@@ -92,7 +92,7 @@ def update_category(category_id):
                 "name": category.name,
                 "description": category.description
             }
-        }), 201
+        }), 200
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
     except Exception as e:
@@ -173,13 +173,13 @@ def delete_category(category_id):
         or an error message if the category does not exist.
     """
     try:
-        category = Category.query.get(category_id)
+        category = db.session.get(Category, category_id)
         if category:
             db.session.delete(category)
             db.session.commit()
             return jsonify({
                 "Message": "category deleted successfully"
-            }), 201
+            }), 200
         return jsonify({
             "Error": f"category with id {category_id} does not exist"
         }), 404
