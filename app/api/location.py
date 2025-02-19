@@ -71,15 +71,13 @@ def update_location(location_id):
         or an error message if unsuccessful.
     """
     try:
-        if not location_id.isdigit():
-            return jsonify({"Error": "Invalid location ID format"}), 400
         if not request.is_json:
             return jsonify({
                 "error":
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        location = Location.query.get(location_id)
+        location = db.session.get(Location, location_id)
         if not location:
             return jsonify({
                 "error": f"location with ID {location_id} not found."
@@ -98,7 +96,7 @@ def update_location(location_id):
                 "name": location.name,
                 "address": location.address
             }
-        })
+        }), 200
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
     except Exception as e:
@@ -110,7 +108,7 @@ def update_location(location_id):
 
 @loc_bp.route('/location/<int:location_id>', methods=['GET'])
 @jwt_required()
-def get_department(location_id):
+def get_location(location_id):
     """
     Retrieve a specific location by ID.
     Args:
@@ -120,7 +118,7 @@ def get_department(location_id):
         or an error message if not found.
     """
     try:
-        location = Location.query.get(location_id)
+        location = db.session.get(Location, location_id)
         if not location:
             return jsonify({
                 "error": f"Location with id {location_id} not found"
@@ -131,7 +129,7 @@ def get_department(location_id):
                 "name": location.name,
                 "address": location.address
             }
-        })
+        }), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
@@ -177,13 +175,13 @@ def delete_location(location_id):
         or an error message if the location does not exist.
     """
     try:
-        location = Location.query.get(location_id)
+        location = db.session.get(Location, location_id)
         if location:
             db.session.delete(location)
             db.session.commit()
             return jsonify({
                 "Message": "Location deleted successfully"
-            }), 201
+            }), 200
         return jsonify({
             "Error": f"Location with id {location_id} does not exist"
         }), 404
