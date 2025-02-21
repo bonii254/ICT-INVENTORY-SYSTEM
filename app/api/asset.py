@@ -47,7 +47,7 @@ def create_asset():
             }), 415
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
-        category = Category.query.get(asset_info["category_id"])
+        category = db.session.get(Category, asset_info["category_id"])
         category_parts = category.name.split(':')
         category_prefix = category_parts[0][:4]
         category_suffix = category_parts[1][:3]
@@ -62,9 +62,9 @@ def create_asset():
             new_number = "001"
         asset_tag = f"{base_tag}{new_number}"
 
-        location = Location.query.get(asset_info["location_id"]).name[:4]
+        location = db.session.get(Location, asset_info["location_id"]).name[:4]
         location = location.capitalize()
-        department = Department.query.get(asset_info["department_id"]).name[:4]
+        department = db.session.get(Department, asset_info["department_id"]).name[:4]
         department = department.capitalize()
         base_name = f"{location}-{department}-{category_suffix.capitalize()}"
         latest_asset_name = Asset.query.filter(
@@ -93,10 +93,10 @@ def create_asset():
         db.session.add(new_asset)
         db.session.commit()
 
-        user = User.query.get(new_asset.assigned_to)
-        location = Location.query.get(new_asset.location_id)
-        department = Department.query.get(new_asset.department_id)
-        status = Status.query.get(new_asset.status_id)
+        user = db.session.get(User, new_asset.assigned_to)
+        location = db.session.get(Location, new_asset.location_id)
+        department = db.session.get(Department, new_asset.department_id)
+        status = db.session.get(Status, new_asset.status_id)
 
         return jsonify({
             "message": "Asset created successfully",
