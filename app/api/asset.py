@@ -64,7 +64,8 @@ def create_asset():
 
         location = db.session.get(Location, asset_info["location_id"]).name[:4]
         location = location.capitalize()
-        department = db.session.get(Department, asset_info["department_id"]).name[:4]
+        department = db.session.get(
+            Department, asset_info["department_id"]).name[:4]
         department = department.capitalize()
         base_name = f"{location}-{department}-{category_suffix.capitalize()}"
         latest_asset_name = Asset.query.filter(
@@ -139,7 +140,6 @@ def get_all_asset():
         return jsonify({
             "assets": [asset.to_dict() for asset in assets]}), 200
     except Exception as e:
-        db.session.rollback()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
@@ -209,6 +209,71 @@ def search_assets():
             "pages": assets.pages
         }
         return jsonify(response), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
+
+@asset_bp.route("/delete/assets", methods=["DELETE"])
+@jwt_required()
+def delete_assets():
+    """
+    Delete assets based on various optional filters.
+    Returns:
+        - 200 OK: Confirmation of deletion with count.
+        - 404 Not Found: No matching assets found.
+        - 500 Internal Server Error: If an exception occurs.
+    """
+    try:
+        name = request.args.get('name', None, type=str)
+        asset_tag = request.args.get('asset_tag', None, type=str)
+        ip_address = request.args.get('ip_address', None, type=str)
+        mac_address = request.args.get('mac_address', None, type=str)
+        category = request.args.get('category', None, type=str)
+        assigned_to = request.args.get('assigned_to', None, type=str)
+        location = request.args.get('location', None, type=str)
+        department = request.args.get('department', None, type=str)
+        query = (
+            db.session.query(Asset)
+            .join(User, Asset.assigned_to == User.id)
+            .join(Category, Asset.category_id == Category.id)
+            .join(Location, Asset.location_id == Location.id)
+            .join(Department, Asset.department_id == Department.id)
+        )
+
+        filters = []
+
+        if name:
+            filters.append(Asset.name.ilike(f"%{name}%"))
+        if asset_tag:
+            filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
+        if ip_address:
+            filters.append(Asset.ip_address.ilike(f"%{ip_address}%"))
+        if mac_address:
+            filters.append(Asset.mac_address.ilike(f"%{mac_address}%"))
+        if category:
+            filters.append(Category.name.ilike(f"%{category}%"))
+        if assigned_to:
+            filters.append(User.fullname.ilike(f"%{assigned_to}%"))
+        if location:
+            filters.append(Location.name.ilike(f"%{location}%"))
+        if department:
+            filters.append(Department.name.ilike(f"%{department}%"))
+
+        if filters:
+            query = query.filter(and_(*filters))
+        assets_to_delete = query.all()
+        if not assets_to_delete:
+            return jsonify(
+                {"error": "No matching assets found for deletion"}), 404
+        deleted_count = len(assets_to_delete)
+        for asset in assets_to_delete:
+            db.session.delete(asset)
+        db.session.commit()
+        return jsonify({
+            "message": f"Successfully deleted {deleted_count} asset(s)."
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({
