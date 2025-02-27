@@ -47,7 +47,7 @@ def create_assettransfer():
         })
         assettransfer_info = schema.load(assettransfer_data)
 
-        asset = Asset.query.get(assettransfer_info["asset_id"])
+        asset = db.session.get(Asset, assettransfer_info["asset_id"])
 
         if not asset:
             return jsonify({"error": "Asset not found"}), 404
@@ -120,7 +120,7 @@ def get_asset_transfer(id):
         JWT required.
     """
     try:
-        asset_transfer = AssetTransfer.query.get(id)
+        asset_transfer = db.session.get(AssetTransfer, id)
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
         return jsonify(asset_transfer.to_dict()), 200
@@ -156,7 +156,7 @@ def update_asset_transfer(id):
                 "Unsupported Media Type. Content-Type" +
                     " must be application/json."
             }), 415
-        asset_transfer = AssetTransfer.query.get(id)
+        asset_transfer = db.session.get(AssetTransfer, id)
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
 
@@ -165,11 +165,14 @@ def update_asset_transfer(id):
             "transferred_from": assettransfer_data.get("transferred_from"),
             "asset_id": assettransfer_data.get("asset_id")
         })
-        assettransfer_info = schema.load(assettransfer_data)
+        try:
+            assettransfer_info = schema.load(assettransfer_data)
+        except ValidationError as err:
+            return jsonify({"errors": err.messages}), 400
         if 'asset_id' in assettransfer_info:
             asset_transfer.asset_id = assettransfer_info['asset_id']
-            asset = asset.query.get('asset_id')
-            asset_transfer.from_location_id = asset.location_id,
+            asset = db.session.get(Asset, assettransfer_info["asset_id"])
+            asset_transfer.from_location_id = asset.location_id
 
         if 'to_location_id' in assettransfer_info:
             asset_transfer.to_location_id = assettransfer_info[
@@ -208,7 +211,7 @@ def delete_asset_transfer(id):
         JWT required.
     """
     try:
-        asset_transfer = AssetTransfer.query.get(id)
+        asset_transfer = db.session.get(AssetTransfer, id)
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
         db.session.delete(asset_transfer)
