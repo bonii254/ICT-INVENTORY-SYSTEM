@@ -46,8 +46,8 @@ def create_ticket():
         )
         db.session.add(new_ticket)
         db.session.commit()
-        asset = Asset.query.get(ticket_info["asset_id"])
-        user = User.query.get(ticket_info["user_id"])
+        asset = db.session.get(Asset, ticket_info["asset_id"])
+        user = db.session.get(User, ticket_info["user_id"])
         return jsonify({
             "asset name": asset.name,
             "user name": user.fullname,
@@ -94,7 +94,7 @@ def update_ticket(ticket_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        ticket = Ticket.query.get(ticket_id)
+        ticket = db.session.get(Ticket, ticket_id)
         if not ticket:
             return jsonify({
                 "error": f"Ticket with ID {ticket_id} not found."
@@ -112,14 +112,15 @@ def update_ticket(ticket_id):
         if 'resolution_notes' in validated_ticket_data:
             ticket.resolution_notes = validated_ticket_data['resolution_notes']
         db.session.commit()
-        asset = Asset.query.get(ticket.asset_id)
-        user = User.query.get(ticket.user_id)
+        asset = db.session.get(Asset, ticket.asset_id)
+        user = db.session.get(User, ticket.user_id)
         return jsonify({
             "message": "Ticket updated successfully",
             "ticket": {
                 "asset name": asset.name,
                 "user name": user.fullname,
                 "description": ticket.description,
+                "status": ticket.status,
                 "resolution_notes": ticket.resolution_notes
             }
         }), 200
@@ -146,14 +147,14 @@ def get_ticket(ticket_id):
         - 500: Unexpected server error.
     """
     try:
-        ticket = Ticket.query.get(ticket_id)
+        ticket = db.session.get(Ticket, ticket_id)
         if not ticket:
             return jsonify({
                 "error":
                 f"Ticket with id {ticket_id} not found."
             }), 404
-        asset = Asset.query.get(ticket.asset_id)
-        user = User.query.get(ticket.user_id)
+        asset = db.session.get(Asset, ticket.asset_id)
+        user = db.session.get(User, ticket.user_id)
         return jsonify({
             "asset name": asset.name,
             "user name": user.fullname,
@@ -182,18 +183,18 @@ def get_asset_tickets(asset_id):
         - 500: Unexpected server error.
     """
     try:
-        asset = Asset.query.get(asset_id)
+        asset = db.session.get(Asset, asset_id)
         if not asset:
             return jsonify({
                 "error":
                 f"Asset with id {asset_id} not found."
-            })
+            }), 404
         asset_name = asset.name if asset else 'unknown asset'
-        tickets = Ticket.query.filter_by(asset_id=asset_id).all()
+        tickets = db.session.query(Ticket).filter_by(asset_id=asset_id).all()
         ticket_list = [
             {
                 "asset name": asset_name,
-                "user name": User.query.get(ticket.user_id).fullname,
+                "user name": (db.session.get(User, ticket.user_id)).fullname,
                 "status": ticket.status,
                 "description": ticket.description,
                 "resolution_notes": ticket.resolution_notes
@@ -205,7 +206,7 @@ def get_asset_tickets(asset_id):
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
-        })
+        }), 500
 
 
 @tic_bp.route('/tickets', methods=["GET"])
@@ -224,8 +225,8 @@ def get_all_tickets():
         tickets = Ticket.query.all()
         ticket_list = [
             {
-                "asset name": Asset.query.get(ticket.asset_id).name,
-                "user name": User.query.get(ticket.user_id).fullname,
+                "asset name": (db.session.get(Asset, ticket.asset_id)).name,
+                "user name": (db.session.get(User, ticket.user_id)).fullname,
                 "status": ticket.status,
                 "description": ticket.description,
                 "resolution_notes": ticket.resolution_notes
@@ -253,7 +254,7 @@ def delete_ticket(ticket_id):
         - 500: Unexpected server error.
     """
     try:
-        ticket = Ticket.query.get(ticket_id)
+        ticket = db.session.get(Ticket, ticket_id)
         if not ticket:
             return jsonify({
                 "error":
