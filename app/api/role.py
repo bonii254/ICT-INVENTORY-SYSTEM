@@ -10,7 +10,7 @@ role_bp = Blueprint("role_bp", __name__)
 
 
 @role_bp.route('/register/role', methods=['POST'])
-@jwt_required()
+#@jwt_required()
 def create_role():
     """
     Create a new role.
@@ -82,7 +82,7 @@ def update_role(role_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        role = Role.query.get(role_id)
+        role = db.session.get(Role, role_id)
         if not role:
             return jsonify({
                 "error": f"Role with ID {role_id} not found."
@@ -123,10 +123,10 @@ def get_role(role_id):
         or an error message if not found.
     """
     try:
-        role = Role.query.get(role_id)
+        role = db.session.get(Role, role_id)
         if not role:
             return jsonify({
-                "error": f"role with id {role_id} not found"
+                "error": f"role with id {role_id} not found."
                 }), 404
         return jsonify({
             "role": {
@@ -180,13 +180,13 @@ def delete_role(role_id):
         or an error message if the role does not exist.
     """
     try:
-        role = Role.query.get(role_id)
+        role = db.session.get(Role, role_id)
         if role:
             db.session.delete(role)
             db.session.commit()
             return jsonify({
                 "Message": "role deleted successfully"
-            }), 201
+            }), 200
         return jsonify({
             "Error": f"role with id {role_id} does not exist"
         }), 404
