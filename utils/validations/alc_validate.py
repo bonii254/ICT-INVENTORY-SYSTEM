@@ -1,5 +1,5 @@
 from marshmallow import fields, validate, validates, ValidationError
-from app.extensions import ma
+from app.extensions import ma, db
 from app.models.v1 import Asset
 
 
@@ -24,7 +24,7 @@ class RegAlcSchema(ma.Schema):
         """
         Ensure the asset_id exists in the database.
         """
-        if not Asset.query.get(value):
+        if not db.session.get(Asset, value):
             raise ValidationError(f"Asset with id {value} does not exist.")
 
     @validates("event")
@@ -53,5 +53,5 @@ class UpdateAlcSchema(ma.Schema):
         Ensure the asset_id exists in the database.
         """
         if value:
-            if not Asset.query.get(value):
+            if not db.session.get(Asset, value):
                 raise ValidationError(f"Asset with id {value} does not exist.")

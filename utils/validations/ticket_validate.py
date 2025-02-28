@@ -1,6 +1,6 @@
 from marshmallow import fields, validate, validates, ValidationError, post_load
 from app.models.v1 import Asset, User
-from app.extensions import ma
+from app.extensions import ma, db
 
 
 class RegTicSchema(ma.Schema):
@@ -42,7 +42,7 @@ class RegTicSchema(ma.Schema):
         """
         Ensure the asset_id exists in the database.
         """
-        if not Asset.query.get(value):
+        if not db.session.get(Asset, value):
             raise ValidationError(f"Asset with id {value} does not exist.")
 
     @validates("user_id")
@@ -50,7 +50,7 @@ class RegTicSchema(ma.Schema):
         """
         Ensure the user_id exists in the database.
         """
-        if not User.query.get(value):
+        if not db.session.get(User, value):
             raise ValidationError(f"User with id {value} does not exist.")
 
 
@@ -83,7 +83,7 @@ class UpdateTicSchema(ma.Schema):
         Ensure the asset_id exists in the database.
         """
         if value:
-            if not Asset.query.get(value):
+            if not db.session.get(Asset, value):
                 raise ValidationError(f"Asset with id {value} does not exist.")
 
     @validates("user_id")
@@ -92,5 +92,5 @@ class UpdateTicSchema(ma.Schema):
         Ensure the user_id exists in the database.
         """
         if value:
-            if not User.query.get(value):
+            if not db.session.get(User, value):
                 raise ValidationError(f"User with id {value} does not exist.")

@@ -1,6 +1,7 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError
-from datetime import datetime
+from datetime import datetime, UTC
 import re
+from app.extensions import db
 from app.models.v1 import Category, User, Location, Status, Department, Asset
 
 
@@ -18,10 +19,11 @@ class RegAssetSchema(Schema):
         validate=validate.Length(min=12, max=17),
         allow_none=True
     )
-    category_id = fields.Int(required=False, allow_none=True)
-    assigned_to = fields.Int(required=False, allow_none=True)
-    location_id = fields.Int(required=False, allow_none=True)
-    status_id = fields.Int(required=False, allow_none=True)
+    category_id = fields.Int(required=True)
+    assigned_to = fields.Int(required=True)
+    location_id = fields.Int(required=True)
+    status_id = fields.Int(required=True)
+    department_id = fields.Int(required=True)
     purchase_date = fields.Date(
         required=False,
         allow_none=True,
@@ -43,10 +45,6 @@ class RegAssetSchema(Schema):
             "max_length":
             "The 'configuration' field cannot exceed 1000 characters."
         }
-    )
-    department_id = fields.Int(
-        required=False,
-        allow_none=True
     )
 
     @validates("ip_address")
@@ -87,7 +85,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the category_id exists in the database.
         """
-        if value and not Category.query.get(value):
+        if value and not db.session.get(Category, value):
             raise ValidationError(f"Category with id {value} does not exist.")
 
     @validates("assigned_to")
@@ -95,7 +93,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the assigned_to user exists in the database.
         """
-        if value and not User.query.get(value):
+        if value and not db.session.get(User, value):
             raise ValidationError(f"User with id {value} does not exist.")
 
     @validates("location_id")
@@ -103,7 +101,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the location_id exists in the database.
         """
-        if value and not Location.query.get(value):
+        if value and not db.session.get(Location, value):
             raise ValidationError(f"Location with id {value} does not exist.")
 
     @validates("status_id")
@@ -111,7 +109,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the status_id exists in the database.
         """
-        if value and not Status.query.get(value):
+        if value and not db.session.get(Status, value):
             raise ValidationError(f"Status with id {value} does not exist.")
 
     @validates("department_id")
@@ -119,7 +117,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the department_id exists in the database.
         """
-        if value and not Department.query.get(value):
+        if value and not db.session.get(Department, value):
             raise ValidationError(
                 f"Department with id {value} does not exist."
             )
@@ -129,7 +127,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the purchase_date is not in the future.
         """
-        if value and value > datetime.utcnow().date():
+        if value and value > datetime.now(UTC).date():
             raise ValidationError(
                 "The 'purchase_date' cannot be in the future."
             )

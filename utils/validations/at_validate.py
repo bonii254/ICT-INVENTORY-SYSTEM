@@ -1,5 +1,5 @@
-from marshmallow import fields, validates, ValidationError
-from app.extensions import ma
+from marshmallow import fields, validates, ValidationError, validates_schema
+from app.extensions import ma, db
 from app.models.v1 import Asset, Location, User
 
 
@@ -14,16 +14,18 @@ class RegATSchema(ma.Schema):
     transferred_to = fields.Integer(required=True)
     notes = fields.String(required=True)
 
+    """
     @validates("asset_id")
     def validate_asset_id(self, value):
-        """Validate that the asset exists."""
-        if not Asset.query.get(value):
+        Validate that the asset exists.
+        if not db.session.get(Asset, value):
             raise ValidationError(f"Asset with id {value} does not exist.")
+    """
 
     @validates("to_location_id")
     def validate_to_location_id(self, value):
         """Validate that the to_location exists."""
-        if not Location.query.get(value):
+        if not db.session.get(Location, value):
             raise ValidationError(f"Location with id {value} does not exist.")
 
     @validates("transferred_to")
@@ -32,13 +34,13 @@ class RegATSchema(ma.Schema):
         Validate that the user receiving the transfer exists and
         ensure no self-transfer.
         """
-        user = User.query.get(value)
+        user = db.session.get(User, value)
         if not user:
             raise ValidationError(f"User with id {value} does not exist.")
 
         asset_id = self.context.get("asset_id")
         if asset_id:
-            asset = Asset.query.get(asset_id)
+            asset = db.session.get(Asset, asset_id)
 
             if asset and asset.assigned_to == value:
                 raise ValidationError(
@@ -60,18 +62,21 @@ class UpdateATSchema(ma.Schema):
     transferred_to = fields.Integer()
     notes = fields.String()
 
+
     @validates("asset_id")
     def validate_asset_id(self, value):
         """Validate that the asset exists."""
         if value:
-            if not Asset.query.get(value):
+            if not db.session.get(Asset, value):
                 raise ValidationError(f"Asset with id {value} does not exist.")
 
     @validates("to_location_id")
     def validate_to_location_id(self, value):
         """Validate that the to_location exists."""
         if value:
-            if not Location.query.get(value):
+            if not isinstance(value, int):
+                raise ValidationError("to_location_id must be an integer.")
+            if not db.session.get(Location, value):
                 raise ValidationError(
                     f"Location with id {value} does not exist.")
 
@@ -83,18 +88,21 @@ class UpdateATSchema(ma.Schema):
         ensure no self-transfer.
         """
         if value:
-            user = User.query.get(value)
+            if not isinstance(value, int):
+                raise ValidationError("transferred_to must be an integer.")
+            user = db.session.get(User, value)
             if not user:
                 raise ValidationError(f"User with id {value} does not exist.")
 
             asset_id = self.context.get("asset_id")
             if asset_id:
-                asset = Asset.query.get(asset_id)
+                asset = db.session.get(Asset, asset_id)
 
             if asset and asset.assigned_to == value:
                 raise ValidationError(
                     "An asset cannot be transferred to the same user.")
 
+    @validates_schema
     def validate(self, data, **kwargs):
         """
         Custom validation to inject context for transferred_from and
