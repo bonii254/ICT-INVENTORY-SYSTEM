@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from app.extensions import db, migrate, bcrypt, jwt, ma
 from app.blueprints.blueprint import register_blueprints
@@ -18,5 +18,13 @@ def create_app(config_name):
     bcrypt.init_app(app)
     jwt.init_app(app)
     ma.init_app(app)
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(reason):
+        return jsonify({"error": "Invalid token"}), 401
+
+    @jwt.unauthorized_loader
+    def missing_token_callback(reason):
+        return jsonify({"error": "Authentication required"}), 401
 
     return app
