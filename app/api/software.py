@@ -4,7 +4,7 @@ from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Software
 from flask_jwt_extended import jwt_required
-from utils.validations.software_validation import (RegSoftwareSchema,
+from utils.validations.software_validate import (RegSoftwareSchema,
                                                    UpdateSoftwareSchema)
 
 
