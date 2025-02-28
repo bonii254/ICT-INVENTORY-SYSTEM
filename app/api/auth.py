@@ -20,7 +20,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.20.186.24',
+                host='172.21.142.162',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -108,18 +108,19 @@ def login():
 def logout():
     "logout a user by disabling access token"
     jti = get_jwt()["jti"]
+    token_type = get_jwt()["type"]
     exp_timestamp = get_jwt()["exp"]
     now = int(datetime.utcnow().timestamp())
     ttl = exp_timestamp - now
-    redis_client.setex(f"{BLACKLIST_PREFIX}{jti}", ttl, "true")
+    redis_client.setex(f"{BLACKLIST_PREFIX}{token_type}_{jti}", ttl, "true")
     return jsonify({"msg": "Successfully logged out"}), 200
 
 
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     jti = jwt_payload["jti"]
-    token_in_blacklist = redis_client.get(f"{BLACKLIST_PREFIX}{jti}")
-    return token_in_blacklist is not None
+    token_type = jwt_payload["type"]
+    return redis_client.exists(f"{BLACKLIST_PREFIX}{token_type}_{jti}") > 0
 
 
 @auth_bp.route('/auth/refresh', methods=['POST'])
