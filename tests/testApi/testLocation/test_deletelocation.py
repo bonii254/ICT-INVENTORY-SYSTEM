@@ -39,7 +39,7 @@ def test_delete_location_invalid_id(user_client):
 
 
 def test_delete_location_db_error(user_client, mocker):
-    """❌ Test database failure handling"""
+    """Test database failure handling"""
     client, headers = user_client
     location = Location.query.first()
     mocker.patch.object(
