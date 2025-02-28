@@ -96,9 +96,7 @@ def test_create_software_invalid_method(user_client):
 def test_create_software_internal_server_error(user_client, mocker):
     """Test handling of unexpected server error during software registration"""
     client, headers = user_client
-    mocker.patch(
-        "app.extensions.db.session.commit",
-        side_effect=Exception("DB error"))
+    mocker.patch.object(Software, "query", side_effect=Exception("DB error"))
     payload = {
         "name": "AutoCAD",
         "version": "2023",
