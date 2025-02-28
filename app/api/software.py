@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Software
@@ -36,9 +36,9 @@ def create_software():
         software_info = RegSoftwareSchema().load(software_data)
         new_software = Software(
             name=software_info["name"],
-            version=software_info["version"],
-            license_key=software_info["license_key"],
-            expiry_date=software_info["expiry_date"],
+            version=software_info.get("version", None),
+            license_key=software_info.get("license_key", None),
+            expiry_date=software_info.get("expiry_date", None)
         )
         db.session.add(new_software)
         db.session.commit()
@@ -86,7 +86,7 @@ def update_software(software_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        software = Software.query.get(software_id)
+        software = db.session.get(Software, software_id)
         if not software:
             return jsonify({
                 "error": f"Software with id {software_id} not found"
@@ -198,22 +198,28 @@ def check_license_status():
     """
     try:
         days = int(request.args.get("days", 30))
-        current_date = datetime.utcnow()
+        if days < 0:
+            return jsonify({
+                "error": "Number of days cannot be negative."
+            }), 400
+        current_date = datetime.now(timezone.utc)
         threshold_date = current_date + timedelta(days=days)
-
         expiring_licenses = Software.query.filter(
             Software.expiry_date <= threshold_date
-        ).all()
+            ).all()
+
         software_list = [software.to_dict() for software in expiring_licenses]
         return jsonify({
             "Softwares": software_list,
             "Message":
             f"Software with licenses expiring in the next {days} days"
         }), 200
+    except ValueError:
+        return jsonify({
+            "error": "Invalid 'days' parameter. Must be an integer."}), 400
     except Exception as e:
         return jsonify({
-            "error": f"An unexpected error occurred: {str(e)}"
-        }), 500
+            "error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
 @sofware_bp.route("/software/bulk-register", methods=["POST"])
@@ -241,17 +247,32 @@ def bulk_register_software():
         software_data_list = request.get_json()
         software_schema = RegSoftwareSchema(many=True)
         software_list = software_schema.load(software_data_list)
-
-        new_software_objects = [
-            Software(
+        new_software_objects = []
+        existing_software_names = set()
+        for software in software_list:
+            software_name = software["name"]
+            if db.session.query(Software).filter_by(
+                name=software["name"]).first():
+                return jsonify({
+                    "error":
+                    f"Software '{software['name']}'" +
+                    "already exists in the system."
+                }), 400
+            if software_name in existing_software_names:
+                return jsonify({
+                    "error":
+                    f"Duplicate entry for '{software_name}'" +
+                    " in request payload."
+                }), 400
+            existing_software_names.add(software_name)
+            new_software_objects.append(
+                Software(
                 name=software["name"],
-                version=software["version"],
-                license_key=software["license_key"],
-                expiry_date=software["expiry_date"],
+                version=software.get("version"),
+                license_key=software.get("license_key"),
+                expiry_date=software.get("expiry_date"),
+                )
             )
-            for software in software_list
-        ]
-
         db.session.bulk_save_objects(new_software_objects)
         db.session.commit()
 
@@ -335,15 +356,30 @@ def generate_software_report():
             "expired_only", "false").lower() == "true"
         start_date = request.args.get("start_date", None)
         end_date = request.args.get("end_date", None)
+        if (start_date and not end_date) or (end_date and not start_date):
+                return jsonify({
+                    "error":
+                    "Both 'start_date' and 'end_date' are required."
+                }), 400
+        if start_date and end_date:
+            try:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d")
+                end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
+                if start_date > end_date:
+                    return jsonify({
+                        "error": "Start date cannot be later than end date."
+                        }), 400
+            except ValueError:
+                return jsonify({
+                    "error": "Invalid date format. Use YYYY-MM-DD."}), 400
         query = Software.query
         if name:
             query = query.filter(Software.name.ilike(f"%{name}%"))
         if expired_only:
-            query = query.filter(Software.expiry_date < datetime.utcnow())
+            query = query.filter(
+                Software.expiry_date < datetime.now(timezone.utc))
         if start_date and end_date:
-            start_date = datetime.strptime(start_date, "%Y-%m-%d")
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
             query = query.filter(
                 Software.expiry_date.between(start_date, end_date))
 
@@ -375,10 +411,10 @@ def delete_software(software_id):
             - 500: An unexpected server error occurred.
     """
     try:
-        software = Software.query.get(software_id)
+        software = db.session.get(Software, software_id)
         if not software:
             return jsonify({
-                "error": "Software with id {software_id} not found"
+                "error": f"Software with id {software_id} not found"
             }), 404
         db.session.delete(software)
         db.session.commit()
