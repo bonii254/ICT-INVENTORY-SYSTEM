@@ -81,7 +81,7 @@ def update_department(department_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        department = Department.query.get(department_id)
+        department = db.session.get(Department, department_id)
         if not department:
             return jsonify({
                 "error": f"Department with ID {department_id} not found."
