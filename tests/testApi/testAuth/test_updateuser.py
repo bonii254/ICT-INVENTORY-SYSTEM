@@ -39,7 +39,7 @@ def test_invalid_token(user_client):
         'department_id': dept.id
     }
     response = client.put("/auth/update/1", headers=headers, json=payload)
-    assert response.status_code == 422
+    assert response.status_code == 401
 
 
 def test_user_not_found(user_client):

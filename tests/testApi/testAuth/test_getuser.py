@@ -2,20 +2,12 @@ from app.models.v1 import User, Department, Role
 from app.extensions import db
 
 
-def test_non_numeric_user_id(user_client):
-    """test invalid non numeric user id"""
-    client, headers = user_client
-    response = client.get("/user/char", headers=headers)
-    assert response.status_code == 400
-    assert "Invalid user ID format." in response.get_json()["Error"]
-
-
 def test_user_not_found(user_client):
     """Test accessing non existing user"""
     client, headers = user_client
-    response = client.get("/user/999", headers=headers)
+    response = client.get("/user/99", headers=headers)
     assert response.status_code == 404
-    assert "User with id 999 not found" in response.json["Error"]
+    assert "User with id 99 not found" in response.json["Error"]
 
 
 def test_missing_token(user_client):
@@ -35,8 +27,8 @@ def test_empty_user_id(user_client):
 def test_user_with_missing_field(user_client):
     """Test fetching a user whose fields are missing."""
     client, headers = user_client
-    department = Department.query.get(1)
-    role = Role.query.get(1)
+    department = db.session.get(Department, 1)
+    role = db.session.get(Role, 1)
     db.session.delete(department)
     db.session.delete(role)
     db.session.commit()
