@@ -20,7 +20,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.21.142.162',
+                host='172.23.194.86',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -112,14 +112,15 @@ def logout():
     exp_timestamp = get_jwt()["exp"]
     now = int(datetime.utcnow().timestamp())
     ttl = exp_timestamp - now
-    redis_client.setex(f"{BLACKLIST_PREFIX}{token_type}_{jti}", ttl, "true")
+    redis_client.setex(f"{BLACKLIST_PREFIX}{token_type}_{jti}", ttl, 1)
+    redis_client.setex(f"{BLACKLIST_PREFIX}refresh_{jti}", ttl, 1)
     return jsonify({"msg": "Successfully logged out"}), 200
 
 
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     jti = jwt_payload["jti"]
-    token_type = jwt_payload["type"]
+    token_type = jwt_payload.get("type", "access")
     return redis_client.exists(f"{BLACKLIST_PREFIX}{token_type}_{jti}") > 0
 
 
@@ -128,6 +129,9 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
 def refresh():
     """Refresh the access token using the refresh token"""
     try:
+        jti = get_jwt()["jti"]
+        if redis_client.exists(f"{BLACKLIST_PREFIX}refresh_{jti}"):
+            return jsonify({"error": "Token has been revoked"}), 401
         current_user = str(get_jwt_identity())
         new_access_token = create_access_token(identity=current_user)
         return jsonify({
@@ -203,25 +207,29 @@ def get_user(user_id):
         JSON response with user details (200) or error message (404/500).
     """
     try:
-        if not user_id.isdigit():
-            return jsonify({"Error": "Invalid user ID format"}), 400
+        if not isinstance(user_id, int):
+            return jsonify({"error": "Invalid user ID format."}), 400
         user = User.query.filter_by(id=user_id).first()
-        if user:
-            department = Department.query.get(user.department_id)
-            role = Role.query.get(user.role_id)
-            if department:
-                department_name = department.name
-            else:
-                department_name = "Unknown Department"
-            role_name = role.name if role else "Unknown Role"
-            return jsonify({
-                "user": {
-                    "fullname": user.fullname,
-                    "email": user.email,
-                    "department": department_name,
-                    "role": role_name
-                }
-            }), 200
-        return jsonify({"Error": f"User with id {user_id} not found"}), 404
+        if not user:
+            return jsonify({"Error": f"User with id {user_id} not found"}), 404
+        department = db.session.get(Department, user.department_id) \
+            if user.department_id else None
+        role = db.session.get(Role, user.role_id) if user.role_id else None
+        if department:
+            department_name = department.name
+        else:
+            department_name = "Unknown Department"
+        role_name = role.name if role else "Unknown Role"
+        return jsonify({
+            "user": {
+                "fullname": user.fullname,
+                "email": user.email,
+                "department": department_name,
+                "role": role_name
+            }
+        }), 200
+    except ValueError:
+        return jsonify({
+            "error": "user id must be an integer"}), 400
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
