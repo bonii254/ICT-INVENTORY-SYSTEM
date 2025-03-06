@@ -5,7 +5,7 @@ from app import create_app
 from app.extensions import db
 from app.models.v1 import (
     Department, Role, User, Category, Location, Asset, Status, AssetTransfer,
-    Ticket, Software, AssetLifecycle)
+    Ticket, Software, AssetLifecycle, Consumables, StockTransaction)
 
 
 @pytest.fixture()
@@ -108,9 +108,18 @@ def seed_test_data():
                         license_key="BDTS-XXXXX-KKKKK-XXXXX-XXXXX",
                         expiry_date=datetime.strptime(
                             "2025-01-01", "%Y-%m-%d").date())
+    consumable = Consumables(
+        name="Solid State Drive5 (SSD)",
+        category="Storage Devices",
+        brand="Samsung",
+        quantity=12,
+        model="870 EVO 1TB",
+        unit_of_measure="Piece",
+        reorder_level=10
+    )
 
     db.session.add_all([dept, role, location2, location, category, status,
-                        software, software2])
+                        software, software2, consumable])
     db.session.commit()
 
     user = User(
@@ -172,3 +181,20 @@ def seed_test_data():
         notes="Routine check completed")
     db.session.add(assetlifecycle)
     db.session.commit()
+    transaction = StockTransaction(
+        consumable_id=consumable.id,
+        department_id=dept.id,
+        transaction_type="IN",
+        user_id=user.id,
+        quantity=10
+    )
+    transaction2 = StockTransaction(
+        consumable_id=consumable.id,
+        department_id=dept.id,
+        transaction_type="OUT",
+        user_id=user.id,
+        quantity=10
+    )
+    db.session.add_all([transaction, transaction2])
+    db.session.commit()
+
