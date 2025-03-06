@@ -44,9 +44,11 @@ def test_get_all_asset_lifecycles_internal_server_error(user_client, mocker):
     Test handling of unexpected server error during asset lifecycle retrieval
     """
     client, headers = user_client
-    mocker.patch(
-        "app.models.v1.AssetLifecycle.query.all",
-        side_effect=Exception("DB error"))
+    mocker.patch.object(
+       AssetLifecycle, "query",
+       new_callable=mocker.PropertyMock,
+       side_effect=Exception("DB error"))
+
     response = client.get("/asset-lifecycles", headers=headers)
     assert response.status_code == 500
     assert "An unexpected error occurred" in response.json["error"]
