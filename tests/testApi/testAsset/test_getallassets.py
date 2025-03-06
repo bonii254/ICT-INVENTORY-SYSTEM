@@ -2,9 +2,9 @@ from app.models.v1 import Asset
 from app.extensions import db
 
 
-def test_get_all_assets_success(asset_user_client):
+def test_get_all_assets_success(user_client):
     """Test retrieving all assets successfully."""
-    client, headers, _ = asset_user_client
+    client, headers = user_client
     db.session.query(Asset).delete()
     response = client.get("/assets", headers=headers)
     assert response.status_code == 200
@@ -14,9 +14,9 @@ def test_get_all_assets_success(asset_user_client):
     assert len(data["assets"]) >= 0
 
 
-def test_get_assets_empty(asset_user_client):
+def test_get_assets_empty(user_client):
     """Test retrieving assets when none exist in the database."""
-    client, headers, _ = asset_user_client
+    client, headers = user_client
     db.session.query(Asset).delete()
     db.session.commit()
     response = client.get("/assets", headers=headers)
