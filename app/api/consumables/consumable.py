@@ -84,7 +84,10 @@ def update_consumable(id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        consumable = Consumables.query.get_or_404(id)
+        consumable = db.session.get(Consumables, id)
+        if not consumable:
+            return jsonify(
+                {"error": f"Consumable with id {id} not found."}), 404
         consumable_data = request.get_json()
         validated_consumable_info = UpdateConSchema().load(consumable_data)
         if 'name' in validated_consumable_info:
@@ -139,7 +142,10 @@ def get_consumable(id):
                 during processing.
     """
     try:
-        consumable = Consumables.query.get_or_404(id)
+        consumable = db.session.get(Consumables, id)
+        if not consumable:
+            return jsonify(
+                {"error": f"Consumable with id {id} not found."}), 404
         return jsonify(consumable.to_dict()), 200
     except Exception as e:
         return jsonify({
@@ -200,11 +206,14 @@ def delete_consumable(id):
                  during processing.
     """
     try:
-        consumable = Consumables.query.get_or_404(id)
+        consumable = db.session.get(Consumables, id)
+        if not consumable:
+            return jsonify(
+                {"error": f"Consumable with id {id} not found."}), 404
         db.session.delete(consumable)
         db.session.commit()
         return jsonify({
-            "message": "Consumable deleted successfully"
+            "message": "Consumable deleted successfully."
         }), 200
     except Exception as e:
         return jsonify({
