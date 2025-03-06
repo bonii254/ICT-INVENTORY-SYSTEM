@@ -1,6 +1,6 @@
 from marshmallow import (
     fields, validate, validates, post_load, ValidationError)
-from app.extensions import ma
+from app.extensions import ma, db
 from app.extensions import bcrypt
 from app.models.v1 import User, Role, Department
 
@@ -70,12 +70,12 @@ class UpdateUserSchema(ma.Schema):
     @validates('role_id')
     def validate_role_id(self, value):
         if value:
-            if not Role.query.get(value):
+            if not db.session.get(Role, value):
                 raise ValidationError(f"Role with id {value} does not exist.")
 
     @validates('department_id')
     def validate_department_id(self, value):
         if value:
-            if not Department.query.get(value):
+            if not db.session.get(Department, value):
                 raise ValidationError(
                     f"Department with id {value} does not exist.")
