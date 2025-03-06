@@ -5,9 +5,10 @@ from app.extensions import db
 def test_create_location_success(user_client):
     """Test successful location registration"""
     client, headers = user_client
-    new_location = {"name": "society", "address": "githunguri"}
+    new_location = {"name": "MOIROAD", "address": "githunguri"}
     response = client.post(
         "/register/location", json=new_location, headers=headers)
+    print(response.json)
     assert response.status_code == 201
     data = response.get_json()
     assert "message" in data

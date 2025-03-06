@@ -7,6 +7,7 @@ def test_delete_location_success(user_client):
     client, headers = user_client
     location = Location.query.first()
     response = client.delete(f"/location/{location.id}", headers=headers)
+    print(response.json)
     assert response.status_code == 200
     data = response.get_json()
     assert "Message" in data
