@@ -27,7 +27,7 @@ def test_get_all_departments_missing_jwt(user_client):
     client, _ = user_client
     response = client.get("/departments")
     assert response.status_code == 401
-    assert "Missing token" in response.get_json()["error"]
+    assert "Authentication required" in response.get_json()["error"]
 
 
 def test_get_all_departments_invalid_jwt(user_client):

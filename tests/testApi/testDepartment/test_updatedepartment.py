@@ -99,13 +99,13 @@ def test_special_characters_in_name(user_client, app):
 def test_duplicate_department_name(user_client, app):
     """Test updating department name to an existing one."""
     client, headers = user_client
-    payload = {"name": "Finance"}
+    payload = {"name": "ICT"}
     with app.app_context():
         dept = Department.query.filter_by(name="ICT").first()
     response = client.put(
         f"department/{dept.id}", json=payload, headers=headers)
     assert response.status_code == 400
-    assert "Department name 'Finance' already exists." \
+    assert "Department name 'ICT' already exists." \
         in response.get_json()["errors"]["name"]
 
 
@@ -135,14 +135,14 @@ def test_negative_department_id(user_client, app):
 
 def test_unauthorized_access(user_client, app):
     """Test update without authentication token."""
-    client, _ = user_client  # No headers with JWT
+    client, _ = user_client
     with app.app_context():
         dept = Department.query.filter_by(name="ICT").first()
     payload = {"name": "Procurement"}
     response = client.put(
         f"/department/{dept.id}", json=payload)
     assert response.status_code == 401
-    assert "Missing token" \
+    assert "Authentication required" \
         in response.get_json()["error"]
 
 
