@@ -47,19 +47,19 @@ class AssetTransfer(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_id = db.Column(
         db.Integer, db.ForeignKey(
-            'assets.id', ondelete="CASCADE"), nullable=False)
+            'assets.id', ondelete="CASCADE"), nullable=True)
     from_location_id = db.Column(
         db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=False)
+            'locations.id', ondelete="SET NULL"), nullable=True)
     to_location_id = db.Column(
         db.Integer, db.ForeignKey(
-            'locations.id', ondelete="SET NULL"), nullable=False)
+            'locations.id', ondelete="SET NULL"), nullable=True)
     transferred_from = db.Column(
         db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=False)
+            'users.id', ondelete="SET NULL"), nullable=True)
     transferred_to = db.Column(
         db.Integer, db.ForeignKey(
-            'users.id', ondelete="SET NULL"), nullable=False)
+            'users.id', ondelete="SET NULL"), nullable=True)
     notes = db.Column(db.Text)
 
     def to_dict(self):
