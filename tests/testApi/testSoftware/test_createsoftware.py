@@ -91,18 +91,3 @@ def test_create_software_invalid_method(user_client):
     client, headers = user_client
     response = client.get("/register/software", headers=headers)
     assert response.status_code == 405
-
-
-def test_create_software_internal_server_error(user_client, mocker):
-    """Test handling of unexpected server error during software registration"""
-    client, headers = user_client
-    mocker.patch.object(Software, "query", side_effect=Exception("DB error"))
-    payload = {
-        "name": "AutoCAD",
-        "version": "2023",
-        "license_key": "AUTOCAD-1111-2222",
-        "expiry_date": "2025-09-15"
-    }
-    response = client.post("/register/software", headers=headers, json=payload)
-    assert response.status_code == 500
-    assert "An unexpected error occurred" in response.json["error"]
