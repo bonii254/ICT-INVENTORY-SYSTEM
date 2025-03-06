@@ -36,8 +36,11 @@ def reg_stocktransaction():
             }), 415
         transaction_data = request.get_json()
         validated_data = StockTransactionSchema().load(transaction_data)
-        user = User.query.get_or_404(int(get_jwt_identity()))
-        consumable = Consumables.query.get(validated_data["consumable_id"])
+        user = db.session.get(User, int(get_jwt_identity()))
+        if not user:
+            return jsonify({"error": "user not found."}), 404
+        consumable = db.session.get(
+            Consumables, validated_data["consumable_id"])
         if not consumable:
             return jsonify({"error": "Consumable not found."}), 404
         transaction_type = validated_data["transaction_type"]
@@ -178,8 +181,8 @@ def search_transaction():
         if filters:
             query = query.filter(and_(*filters))
 
-        transactions = db.paginate(
-            query, page=page, per_page=per_page, error_out=False)
+        transactions = query.paginate(
+            page=page, per_page=per_page, error_out=False)
 
         response = {
             "transactions": [t.to_dict() for t in transactions.items],
@@ -215,10 +218,10 @@ def delete_transaction(transaction_id):
         - 500: Internal server error if an unexpected error occurs.
     """
     try:
-        transaction = StockTransaction.query.get(transaction_id)
+        transaction = db.session.get(StockTransaction, transaction_id)
         if not transaction:
             return jsonify({"error": "Transaction not found."}), 404
-        consumable = Consumables.query.get(transaction.consumable_id)
+        consumable = db.session.get(Consumables, transaction.consumable_id)
         if not consumable:
             return jsonify({"error": "Consumable not found."}), 404
         if transaction.transaction_type == "IN":
