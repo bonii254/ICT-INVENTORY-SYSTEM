@@ -70,7 +70,7 @@ def reg_stocktransaction():
             department_id=validated_data["department_id"],
             transaction_type=transaction_type,
             quantity=quantity,
-            user_id=user.fullname
+            user_id=user.id
         )
         db.session.add(new_transaction)
         db.session.commit()
