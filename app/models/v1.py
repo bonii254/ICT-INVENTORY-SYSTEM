@@ -261,8 +261,8 @@ class Asset(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_tag = db.Column(db.String(100), nullable=False, unique=True)
     name = db.Column(db.String(255), nullable=False)
-    ip_address = db.Column(db.String(45), nullable=True, unique=True)
-    mac_address = db.Column(db.String(17), nullable=True, unique=True)
+    model_number = db.Column(db.String(45), nullable=True, unique=True)
+    serial_number = db.Column(db.String(45), nullable=True, unique=True)
     category_id = db.Column(
         db.Integer, db.ForeignKey(
             'categories.id', ondelete="SET NULL"))
