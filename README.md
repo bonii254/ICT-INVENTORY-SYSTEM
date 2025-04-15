@@ -82,7 +82,7 @@ pip install -r requirements.txt
 ### **3️⃣ Set Environment Variables**
 ```sh
 set FLASK_APP=app.py  # Windows
-\$envPYTHONPATH="." # Windows
+$envPYTHONPATH="." # Windows
 export FLASK_APP=app.py  # Mac/Linux
 
 ```
