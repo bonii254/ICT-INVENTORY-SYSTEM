@@ -151,7 +151,8 @@ def seed_test_data():
         configuration="Intel i7, 16GB RAM, 512GB SSD, Windows 11",
         department_id=dept.id,
         serial_number="192.168.37.145",
-        model_number="01:1A:2B:3C:6D:7E"
+        model_number
+        ="01:1A:2B:3C:6D:7E"
     )
 
     db.session.add(asset)
