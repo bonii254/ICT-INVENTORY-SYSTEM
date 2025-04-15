@@ -9,15 +9,11 @@ class RegAssetSchema(Schema):
     """
     Marshmallow schema for validating Asset creation data.
     """
-    ip_address = fields.Str(
-        required=False,
-        validate=validate.Length(min=7, max=45),
-        error_messages={"required": "The 'ip_address' fields is required."}
+    model_number = fields.Str(
+        required=False
     )
-    mac_address = fields.Str(
-        required=False,
-        validate=validate.Length(min=12, max=17),
-        allow_none=True
+    serial_number = fields.Str(
+        required=False
     )
     category_id = fields.Int(required=True)
     assigned_to = fields.Int(required=True)
@@ -46,39 +42,6 @@ class RegAssetSchema(Schema):
             "The 'configuration' field cannot exceed 1000 characters."
         }
     )
-
-    @validates("ip_address")
-    def validate_ip_address(self, value):
-        """
-        Validate that the IP address is correctly formatted and unique.
-        """
-        ipv4_pattern = r"^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-
-        ipv6_pattern = r"^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
-
-        if value:
-            if not re.match(ipv4_pattern, value):
-                if not re.match(ipv6_pattern, value):
-                    raise ValidationError(
-                        f"The IP address '{value}' is not valid.")
-
-            if Asset.query.filter_by(ip_address=value).first():
-                raise ValidationError(
-                    f"The IP address '{value}' is already in use.")
-
-    @validates("mac_address")
-    def validate_mac_address(self, value):
-        """
-        Validate that the MAC address is correctly formatted and unique.
-        """
-        if value:
-            mac_pattern = r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
-            if not re.match(mac_pattern, value):
-                raise ValidationError(
-                    f"The MAC address '{value}' is not valid.")
-            if Asset.query.filter_by(mac_address=value).first():
-                raise ValidationError(
-                    f"The MAC address '{value}' is already in use.")
 
     @validates("category_id")
     def validate_category_id(self, value):
