@@ -150,8 +150,8 @@ def seed_test_data():
         warranty_expiry=datetime.strptime("2026-01-01", "%Y-%m-%d").date(),
         configuration="Intel i7, 16GB RAM, 512GB SSD, Windows 11",
         department_id=dept.id,
-        ip_address="192.168.37.145",
-        mac_address="01:1A:2B:3C:6D:7E"
+        serial_number="192.168.37.145",
+        model_number="01:1A:2B:3C:6D:7E"
     )
 
     db.session.add(asset)
