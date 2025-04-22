@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from flask_jwt_extended import (create_access_token, create_refresh_token,
-                                jwt_required, get_jwt, get_jwt_identity,)
+                                jwt_required, get_jwt, get_jwt_identity,
+                                set_refresh_cookies)
 import redis
 from datetime import datetime
 from app.models.v1 import User, Department, Role
@@ -20,7 +21,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.23.194.86',
+                host='172.20.217.121',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -83,16 +84,17 @@ def login():
         if user and bcrypt.check_password_hash(user.password, password):
             access_token = create_access_token(identity=str(user.id))
             refresh_token = create_refresh_token(identity=str(user.id))
-            return jsonify({
+            response = jsonify({
                 "access_token": access_token,
-                "refresh_token": refresh_token,
                 "user": {
                     "fullname": user.fullname,
                     "email": user.email,
                     "department_id": user.department_id,
                     "role_id": user.role_id
                 }
-            }), 200
+            })
+            set_refresh_cookies(response, refresh_token)
+            return response
         else:
             return jsonify({"message": "Invalid email or password"}), 401
     except ValidationError as err:
