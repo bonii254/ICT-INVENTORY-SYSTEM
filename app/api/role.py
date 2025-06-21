@@ -159,9 +159,7 @@ def get_all_roles():
                 "permissions": role.permissions
             } for role in roles
         ]
-        return jsonify({
-            "roles": role_list
-        }), 200
+        return jsonify(role_list), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
