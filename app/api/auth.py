@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, get_jwt, get_jwt_identity,
-                                set_refresh_cookies)
+                                set_refresh_cookies, set_access_cookies)
 import redis
 from datetime import datetime
 from app.models.v1 import User, Department, Role
@@ -21,7 +21,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.20.217.121',
+                host='172.30.247.225',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -66,26 +66,26 @@ def create_user():
 
 
 @auth_bp.route('/auth/login', methods=['POST'], strict_slashes=False)
-#@limiter.limit("10 per minute")
 def login():
-    """login a user by authentification"""
     try:
         if not request.is_json:
             return jsonify({
-                "error":
-                "Unsupported Media Type." +
-                " Content-Type must be application/json."
+                "error": "Unsupported Media Type. \
+                    Content-Type must be application/json."
             }), 415
+
         user_data = request.get_json()
         user_info = LoginSchema().load(user_data)
+
         email = user_info.get('email')
         password = user_info.get('password')
+
         user = User.query.filter_by(email=email).first()
         if user and bcrypt.check_password_hash(user.password, password):
             access_token = create_access_token(identity=str(user.id))
             refresh_token = create_refresh_token(identity=str(user.id))
+
             response = jsonify({
-                "access_token": access_token,
                 "user": {
                     "fullname": user.fullname,
                     "email": user.email,
@@ -93,17 +93,20 @@ def login():
                     "role_id": user.role_id
                 }
             })
+
+            set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
+
             return response
-        else:
-            return jsonify({"message": "Invalid email or password"}), 401
+
+        return jsonify({"message": "Invalid email or password"}), 401
+
     except ValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "error": f"An unexpected error occurred: {str(e)}"
-        }), 500
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 
 @auth_bp.route('/auth/logout', methods=['POST'])
 @jwt_required()
@@ -125,6 +128,30 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
     token_type = jwt_payload.get("type", "access")
     return redis_client.exists(f"{BLACKLIST_PREFIX}{token_type}_{jti}") > 0
 
+@auth_bp.route('/verify-token', methods=['GET'])
+@jwt_required()
+def verify_token():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Invalid user"}), 401
+    department = db.session.get(Department, user.department_id) \
+            if user.department_id else None
+    role = db.session.get(Role, user.role_id) if user.role_id else None
+    if department:
+        department_name = department.name
+    else:
+        department_name = "Unknown Department"
+    role_name = role.name if role else "Unknown Role"
+
+    return jsonify({
+        "id": user.id,
+        "fullname": user.fullname,
+        "email": user.email,
+        "department": department_name,
+        "role": role_name
+    }), 200
+
 
 @auth_bp.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
@@ -134,11 +161,13 @@ def refresh():
         jti = get_jwt()["jti"]
         if redis_client.exists(f"{BLACKLIST_PREFIX}refresh_{jti}"):
             return jsonify({"error": "Token has been revoked"}), 401
+
         current_user = str(get_jwt_identity())
         new_access_token = create_access_token(identity=current_user)
-        return jsonify({
-            "access_token": new_access_token
-        }), 200
+
+        response = jsonify({"msg": "Token refreshed successfully"})
+        set_access_cookies(response, new_access_token)
+        return response, 200
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
 
@@ -235,3 +264,33 @@ def get_user(user_id):
             "error": "user id must be an integer"}), 400
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
+
+
+@auth_bp.route('/users', methods=['GET'])
+@jwt_required()
+def get_all_users():
+    """
+    Retrieve all user details.
+    This endpoint fetches all users along with their department and role.
+    Requires a valid JWT token.
+    Returns:
+        JSON response with list of users (200) or error message (500).
+    """
+    try:
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            department = db.session.get(
+                Department, user.department_id) if user.department_id else None
+            role = db.session.get(Role, user.role_id) if user.role_id else None
+            user_list.append({
+                "id": user.id,
+                "fullname": user.fullname,
+                "email": user.email,
+                "department": department.name if department else \
+                    "Unknown Department",
+                "role": role.name if role else "Unknown Role"
+            })
+        return jsonify(user_list), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
