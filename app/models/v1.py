@@ -66,14 +66,16 @@ class AssetTransfer(TimestampMixin, db.Model):
         return {
             "id": self.id,
             "asset": self.asset.name if self.asset else None,
+            "asset serial number": self.asset.serial_number if \
+                self.asset else None,
             "from_location": self.from_location.name if \
                 self.from_location else None,
             "to_location": self.to_location.name if self.to_location else None,
             "transferred_from": self.sender.fullname if self.sender else None,
             "transferred_to": self.receiver.fullname if self.receiver else None,
             "notes": self.notes,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
         }
 
 
@@ -261,7 +263,7 @@ class Asset(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_tag = db.Column(db.String(100), nullable=False, unique=True)
     name = db.Column(db.String(255), nullable=False)
-    model_number = db.Column(db.String(45), nullable=True, unique=True)
+    model_number = db.Column(db.String(45), nullable=True)
     serial_number = db.Column(db.String(45), nullable=True, unique=True)
     category_id = db.Column(
         db.Integer, db.ForeignKey(
@@ -304,14 +306,15 @@ class Asset(TimestampMixin, db.Model):
             "id": self.id,
             "name": self.name,
             "asset tag": self.asset_tag,
-            "ip_address": self.ip_address,
-            "mac_address": self.mac_address,
+            "serial_number": self.serial_number,
+            "model": self.model_number,
             "category": self.category.name if self.category else None,
             "assigned_to": self.user.fullname if self.user else None,
             "location": self.location.name if self.location else None,
+            "department": self.department.name if self.department else None,
             "status": self.status.name if self.status else None,
-            "purchase_date": self.purchase_date,
-            "warranty_expiry": self.warranty_expiry,
+            "purchase_date": self.purchase_date.strftime('%a, %d %b %Y'),
+            "warranty_expiry": self.warranty_expiry.strftime('%a, %d %b %Y'),
             "configuration": self.configuration,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
