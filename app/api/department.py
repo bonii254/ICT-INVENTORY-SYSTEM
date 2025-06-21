@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from marshmallow import ValidationError
+from marshmallow import ValidationError # type: ignore
 from app.extensions import db
 from app.models.v1 import Department
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required # type: ignore
 from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
 
 
@@ -10,7 +10,7 @@ dep_bp = Blueprint("dep_bp", __name__)
 
 
 @dep_bp.route('/register/department', methods=['POST'])
-#@jwt_required()
+@jwt_required()
 def create_department():
     """
     Create a new Department.
