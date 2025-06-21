@@ -141,7 +141,7 @@ def get_department(department_id):
 
 
 @dep_bp.route('/departments', methods=['GET'])
-@jwt_required()
+#@jwt_required
 def get_all_departments():
     """
     Retrieve all departments.
@@ -157,9 +157,7 @@ def get_all_departments():
                 "name": department.name
             } for department in departments
         ]
-        return jsonify({
-            "departments": department_list
-        }), 200
+        return jsonify(department_list), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
