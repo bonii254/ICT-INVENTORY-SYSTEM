@@ -1,8 +1,8 @@
 from flask import jsonify, Blueprint, request
 from app.models.v1 import Location
 from app.extensions import db
-from flask_jwt_extended import jwt_required
-from marshmallow import ValidationError
+from flask_jwt_extended import jwt_required # type: ignore
+from marshmallow import ValidationError # type: ignore
 from utils.validations.loc_validate import RegLocSchema, UpdateLocSchema
 
 
@@ -154,9 +154,7 @@ def get_all_locations():
                 "address": location.address
             } for location in locations
         ]
-        return jsonify({
-            "locations": location_list
-        }), 200
+        return jsonify(location_list), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
