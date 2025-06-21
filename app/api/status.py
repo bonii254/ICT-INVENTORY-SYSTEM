@@ -163,9 +163,7 @@ def get_all_statuses():
                 "description": status.description
             } for status in statuses
         ]
-        return jsonify({
-            "statuses": status_list
-        }), 200
+        return jsonify(status_list), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
