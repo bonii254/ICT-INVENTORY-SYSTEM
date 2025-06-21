@@ -1,4 +1,4 @@
-from marshmallow import fields, validate, validates, ValidationError, post_load
+from marshmallow import fields, validate, validates, ValidationError, post_load # type: ignore
 from app.extensions import ma
 from app.models.v1 import Software
 from datetime import datetime, timezone
@@ -28,7 +28,7 @@ class RegSoftwareSchema(ma.Schema):
 
 
 class UpdateSoftwareSchema(ma.Schema):
-    name = fields.Str(validate=validate.Length(min=1, max=120))
+    name = fields.Str(allow_none=True, validate=validate.Length(max=120))
     version = fields.Str(allow_none=True, validate=validate.Length(max=120))
     license_key = fields.Str(
         allow_none=True, validate=validate.Length(max=300))
