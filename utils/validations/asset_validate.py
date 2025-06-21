@@ -106,3 +106,15 @@ class RegAssetSchema(Schema):
                 raise ValidationError(
                     "The 'warranty_expiry' cannot be earlier than the\
                           'purchase_date'.")
+
+    @validates("serial_number")
+    def validate_serial_number(self, value):
+        """
+        Ensure the serial_number is unique in the database.
+        """
+        if value:
+            existing = db.session.query(
+                Asset).filter_by(serial_number=value).first()
+            if existing:
+                raise ValidationError(
+                    f"Asset with serial number '{value}' already exists.")
