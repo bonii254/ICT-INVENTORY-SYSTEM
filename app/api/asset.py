@@ -2,9 +2,11 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import and_
 from marshmallow import ValidationError
-from app.models.v1 import Asset, User, Location, Department, Status, Category
+from app.models.v1 import (Asset, User, Location, Department, Status, Category,
+                           Consumables, Software)
 from app.extensions import db
 from utils.validations.asset_validate import RegAssetSchema
+from sqlalchemy import func
 
 
 asset_bp = Blueprint("asset_bp", __name__)
@@ -137,8 +139,10 @@ def get_all_asset():
     """
     try:
         assets = Asset.query.all()
+        total = Asset.query.count()
         return jsonify({
-            "assets": [asset.to_dict() for asset in assets]}), 200
+            "assets": [asset.to_dict() for asset in assets],
+            "total": total}), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
@@ -160,8 +164,8 @@ def search_assets():
     try:
         name = request.args.get('name', None, type=str)
         asset_tag = request.args.get('asset_tag', None, type=str)
-        ip_address = request.args.get('ip_address', None, type=str)
-        mac_address = request.args.get('mac_address', None, type=str)
+        serial_number = request.args.get('serial_number', None, type=str)
+        model_number = request.args.get('model_number', None, type=str)
         category = request.args.get('category', None, type=str)
         assigned_to = request.args.get('assigned_to', None, type=str)
         location = request.args.get('location', None, type=str)
@@ -183,10 +187,10 @@ def search_assets():
             filters.append(Asset.name.ilike(f"%{name}%"))
         if asset_tag:
             filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
-        if ip_address:
-            filters.append(Asset.ip_address.ilike(f"%{ip_address}%"))
-        if mac_address:
-            filters.append(Asset.mac_address.ilike(f"%{mac_address}%"))
+        if serial_number:
+            filters.append(Asset.serial_number.ilike(f"%{serial_number}%"))
+        if model_number:
+            filters.append(Asset.model_number.ilike(f"%{model_number}%"))
         if category:
             filters.append(Category.name.ilike(f"%{category}%"))
         if assigned_to:
@@ -214,6 +218,30 @@ def search_assets():
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
 
+@asset_bp.route("/count/assets", methods=["GET"])
+@jwt_required()
+def get_inventory_counts():
+    """
+    Retrieve the total count of assets, consumables, and software.
+    Returns:
+        - 200 OK: A JSON response containing the total counts for assets, consumables, and software.
+        - 500 Internal Server Error: If an exception occurs.
+    """
+    try:
+        total_assets = Asset.query.count()
+        total_consumables = db.session.query(
+            func.sum(Consumables.quantity)).scalar()
+        if total_consumables is None:
+            total_consumables = 0
+        total_software = Software.query.count()
+
+        return jsonify({
+            "totalAssets": total_assets,
+            "totalConsumables": total_consumables,
+            "totalSoftware": total_software
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @asset_bp.route("/delete/assets", methods=["DELETE"])
 @jwt_required()
@@ -228,8 +256,8 @@ def delete_assets():
     try:
         name = request.args.get('name', None, type=str)
         asset_tag = request.args.get('asset_tag', None, type=str)
-        ip_address = request.args.get('ip_address', None, type=str)
-        mac_address = request.args.get('mac_address', None, type=str)
+        serial_number = request.args.get('serial_number', None, type=str)
+        model_number = request.args.get('model_number', None, type=str)
         category = request.args.get('category', None, type=str)
         assigned_to = request.args.get('assigned_to', None, type=str)
         location = request.args.get('location', None, type=str)
@@ -248,10 +276,10 @@ def delete_assets():
             filters.append(Asset.name.ilike(f"%{name}%"))
         if asset_tag:
             filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
-        if ip_address:
-            filters.append(Asset.ip_address.ilike(f"%{ip_address}%"))
-        if mac_address:
-            filters.append(Asset.mac_address.ilike(f"%{mac_address}%"))
+        if serial_number:
+            filters.append(Asset.serial_number.ilike(f"%{serial_number}%"))
+        if model_number:
+            filters.append(Asset.model_number.ilike(f"%{model_number}%"))
         if category:
             filters.append(Category.name.ilike(f"%{category}%"))
         if assigned_to:
