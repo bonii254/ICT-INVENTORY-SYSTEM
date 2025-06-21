@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from marshmallow import ValidationError
+from marshmallow import ValidationError # type: ignore
 from app.extensions import db
 from app.models.v1 import Category
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required # type: ignore
 from utils.validations.cat_validate import RegCatSchema, UpdateCatSchema
 
 
@@ -152,9 +152,7 @@ def get_all_categories():
                 "description": category.description
             } for category in categories
         ]
-        return jsonify({
-            "categories": category_list
-        }), 200
+        return jsonify(category_list), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
