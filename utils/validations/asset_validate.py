@@ -1,5 +1,5 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError # type: ignore
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import re
 from app.extensions import db
 from app.models.v1 import Category, User, Location, Status, Department, Asset
@@ -90,7 +90,7 @@ class RegAssetSchema(Schema):
         """
         Ensure the purchase_date is not in the future.
         """
-        if value and value > datetime.now(UTC).date():
+        if value and value > datetime.now(timezone.utc).date():
             raise ValidationError(
                 "The 'purchase_date' cannot be in the future."
             )
