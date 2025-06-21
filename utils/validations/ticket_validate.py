@@ -1,4 +1,4 @@
-from marshmallow import fields, validate, validates, ValidationError, post_load
+from marshmallow import fields, validate, validates, ValidationError, post_load # type: ignore
 from app.models.v1 import Asset, User
 from app.extensions import ma, db
 
