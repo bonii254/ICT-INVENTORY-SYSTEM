@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from marshmallow import ValidationError # type: ignore
+from marshmallow import ValidationError 
 from app.extensions import db
 from app.models.v1 import Department
-from flask_jwt_extended import jwt_required # type: ignore
+from flask_jwt_extended import jwt_required 
 from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
 
 

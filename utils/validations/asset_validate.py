@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate, validates, ValidationError # type: ignore
+from marshmallow import Schema, fields, validate, validates, ValidationError 
 from datetime import datetime, timezone
 import re
 from app.extensions import db

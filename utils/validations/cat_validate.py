@@ -1,4 +1,4 @@
-from marshmallow import ( # type: ignore
+from marshmallow import ( 
     fields, post_load, validate, validates, ValidationError)
 from app.extensions import ma
 from app.models.v1 import Category

@@ -1,8 +1,8 @@
 from flask import jsonify, Blueprint, request
 from app.models.v1 import Location
 from app.extensions import db
-from flask_jwt_extended import jwt_required # type: ignore
-from marshmallow import ValidationError # type: ignore
+from flask_jwt_extended import jwt_required 
+from marshmallow import ValidationError 
 from utils.validations.loc_validate import RegLocSchema, UpdateLocSchema
 
 

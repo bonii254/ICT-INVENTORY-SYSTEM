@@ -1,4 +1,4 @@
-from marshmallow import fields, validate, validates, ValidationError # type: ignore
+from marshmallow import fields, validate, validates, ValidationError 
 from app.extensions import ma
 from app.models.v1 import Consumables, StockTransaction, Alert
 

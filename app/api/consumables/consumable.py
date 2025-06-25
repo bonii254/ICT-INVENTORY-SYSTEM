@@ -153,7 +153,7 @@ def get_consumable(id):
         }), 500
 
 
-@consumables_bp.route('/consumables', methods=['Get'])
+@consumables_bp.route('/consumables', methods=['GET'])
 @jwt_required()
 def get_all_consumable():
     """

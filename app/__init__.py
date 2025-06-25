@@ -1,5 +1,5 @@
 from flask import Flask, jsonify
-from flask_cors import CORS # type: ignore
+from flask_cors import CORS
 from app.extensions import db, migrate, bcrypt, jwt, ma
 from app.blueprints.blueprint import register_blueprints
 from instance.config import app_config

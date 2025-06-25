@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
-from marshmallow import ValidationError
+from flask_jwt_extended import jwt_required 
+from marshmallow import ValidationError 
 from app.extensions import db
 from app.models.v1 import Ticket, User, Asset
 from utils.validations.ticket_validate import RegTicSchema, UpdateTicSchema

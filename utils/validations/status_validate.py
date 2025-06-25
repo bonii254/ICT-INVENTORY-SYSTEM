@@ -1,4 +1,4 @@
-from marshmallow import validate, validates, ValidationError, fields, post_load # type: ignore
+from marshmallow import validate, validates, ValidationError, fields, post_load 
 from app.extensions import ma
 from app.models.v1 import Status
 

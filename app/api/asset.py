@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required # type: ignore
+from flask_jwt_extended import jwt_required 
 from sqlalchemy import and_
-from marshmallow import ValidationError # type: ignore
+from marshmallow import ValidationError 
 from app.models.v1 import (Asset, User, Location, Department, Status, Category,
                            Consumables, Software)
 from app.extensions import db
