@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from marshmallow import ValidationError 
+from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Category
-from flask_jwt_extended import jwt_required 
+from flask_jwt_extended import jwt_required
 from utils.validations.cat_validate import RegCatSchema, UpdateCatSchema
 
 
@@ -31,17 +31,16 @@ def create_category():
     try:
         if not request.is_json:
             return jsonify({
-                "error":
-                "Unsupported Media Type." +
-                    " Content-Type must be application/json."
+                "error": "Unsupported Media Type. \
+                    Content-Type must be application/json."
             }), 415
         cat_data = request.get_json()
         new_cat = RegCatSchema().load(cat_data)
         db.session.add(new_cat)
         db.session.commit()
         return jsonify({
-            "message": "Category registered successfully!",
-            "Category": {
+            "category": {
+                "id": new_cat.id,
                 "name": new_cat.name,
                 "description": new_cat.description
             }

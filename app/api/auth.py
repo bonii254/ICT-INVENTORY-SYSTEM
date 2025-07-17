@@ -21,7 +21,7 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.27.176.8',
+                host='172.24.75.104',
                 port=6379,
                 password='qwerty254',
                 decode_responses=True
@@ -156,18 +156,35 @@ def verify_token():
 @auth_bp.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
-    """Refresh the access token using the refresh token"""
     try:
         jti = get_jwt()["jti"]
         if redis_client.exists(f"{BLACKLIST_PREFIX}refresh_{jti}"):
             return jsonify({"error": "Token has been revoked"}), 401
 
-        current_user = str(get_jwt_identity())
-        new_access_token = create_access_token(identity=current_user)
+        current_user_id = get_jwt_identity()
+        new_access_token = create_access_token(identity=current_user_id)
 
-        response = jsonify({"msg": "Token refreshed successfully"})
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"error": "Invalid user"}), 404
+
+        department = db.session.get(Department, user.department_id) \
+            if user.department_id else None
+        role = db.session.get(Role, user.role_id) if user.role_id else None
+
+        response = jsonify({
+            "msg": "Token refreshed successfully",
+            "user": {
+                "fullname": user.fullname,
+                "email": user.email,
+                "department_id": department.name if department else None,
+                "role_id": role.name if role else None
+            }
+        })
+
         set_access_cookies(response, new_access_token)
         return response, 200
+
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
 

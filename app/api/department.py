@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from marshmallow import ValidationError 
+from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Department
-from flask_jwt_extended import jwt_required 
+from flask_jwt_extended import jwt_required
 from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
 
 
@@ -42,8 +42,8 @@ def create_department():
         db.session.commit()
         return jsonify({
             "message": "Department registered successfully!",
-            "Department": {
-                "name": new_dep.name
+            "department": { 
+            "name": new_dep.name
             }
         }), 201
     except ValidationError as err:
