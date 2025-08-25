@@ -21,9 +21,8 @@ limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 redis_client = redis.Redis(
-                host='172.30.219.22',
+                host='127.0.0.1',
                 port=6379,
-                password='qwerty254',
                 decode_responses=True
         )
 
