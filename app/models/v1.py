@@ -14,6 +14,8 @@ class TimestampMixin(object):
         db.DateTime,
         server_default=db.func.now()
     )
+
+
     updated_at = db.Column(
         db.DateTime,
         server_default=db.func.now(),

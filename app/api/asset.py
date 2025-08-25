@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required 
+from flask_jwt_extended import jwt_required
 from sqlalchemy import and_
-from marshmallow import ValidationError 
+from marshmallow import ValidationError
 from app.models.v1 import (Asset, User, Location, Department, Status, Category,
                            Consumables, Software)
 from app.extensions import db
-from utils.validations.asset_validate import RegAssetSchema
+from utils.validations.asset_validate import RegAssetSchema, UpdateAssetSchema
 from sqlalchemy import func
 
 
@@ -127,6 +127,117 @@ def create_asset():
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
 
+
+@asset_bp.route("/update/asset/<int:asset_id>", methods=["PUT"])
+@jwt_required()
+def update_asset(asset_id):
+    """
+    Update an existing asset.
+    Regenerates asset_tag and name if category, location,
+    or department changes.
+    Returns:
+        - 200: Asset updated successfully.
+        - 400: Validation error.
+        - 404: Asset not found.
+        - 415: Unsupported Media Type.
+        - 500: Internal server error.
+    """
+    try:
+        if not request.is_json:
+            return jsonify({
+                "error":
+                "Unsupported Media Type: Content-Type must be application/json"
+            }), 415
+        asset = db.session.get(Asset, asset_id)
+        if not asset:
+            return jsonify({"error": "Asset not found"}), 404
+
+        update_data = request.get_json()
+        asset_info = UpdateAssetSchema().load(update_data)
+        category_changed = "category_id" in asset_info \
+            and asset_info["category_id"] != asset.category_id
+        location_changed = "location_id" in asset_info \
+            and asset_info["location_id"] != asset.location_id
+        department_changed = "department_id" in asset_info \
+            and asset_info["department_id"] != asset.department_id
+
+        for field, value in asset_info.items():
+            setattr(asset, field, value)
+
+        if category_changed or location_changed or department_changed:
+            category = db.session.get(Category, asset.category_id)
+            if not category:
+                return jsonify({"error": "Invalid category"}), 400
+
+            category_parts = category.name.split(':')
+            category_prefix = category_parts[0][:4]
+            category_suffix = category_parts[1][:3]
+            base_tag = f"{category_prefix}{category_suffix}"
+
+            latest_asset = Asset.query.filter(
+                Asset.asset_tag.like(f"{base_tag}%")
+            ).order_by(Asset.asset_tag.desc()).first()
+
+            if latest_asset:
+                last_number = int(latest_asset.asset_tag[-3:])
+                new_number = str(last_number + 1).zfill(3)
+            else:
+                new_number = "001"
+
+            asset.asset_tag = f"{base_tag}{new_number}"
+
+            location = db.session.get(Location, asset.location_id).name[:4]
+            location = location.capitalize()
+            department = db.session.get(
+                Department, asset.department_id).name[:4]
+            department = department.capitalize()
+
+            base_name = f"{location}-{department}-{category_suffix.capitalize()}"
+            latest_asset_name = Asset.query.filter(
+                Asset.name.like(f"{base_name}%")
+            ).order_by(Asset.name.desc()).first()
+
+            if latest_asset_name:
+                last_number = int(latest_asset_name.name[-2:])
+                new_number = str(last_number + 1).zfill(2)
+            else:
+                new_number = "01"
+
+            asset.name = f"{base_name}{new_number}"
+
+        db.session.commit()
+
+        category = db.session.get(Category, asset.category_id)
+        user = db.session.get(User, asset.assigned_to)
+        location = db.session.get(Location, asset.location_id)
+        department = db.session.get(Department, asset.department_id)
+        status = db.session.get(Status, asset.status_id)
+
+        return jsonify({
+            "message": "Asset updated successfully",
+            "asset": {
+                "asset_tag": asset.asset_tag,
+                "name": asset.name,
+                "serial_number": asset.serial_number,
+                "model_number": asset.model_number,
+                "category": category.name if category else None,
+                "assigned_to": user.fullname if user else None,
+                "location": location.name if location else None,
+                "status": status.name if status else None,
+                "purchase_date": asset.purchase_date,
+                "warranty_expiry": asset.warranty_expiry,
+                "configuration": asset.configuration,
+                "department": department.name if department else None
+            }
+        }), 200
+
+    except ValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
 
 @asset_bp.route("/assets", methods=["GET"])
 @jwt_required()

@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate, validates, ValidationError 
+from marshmallow import Schema, fields, validate, validates, ValidationError
 from datetime import datetime, timezone
 import re
 from app.extensions import db
@@ -118,3 +118,103 @@ class RegAssetSchema(Schema):
             if existing:
                 raise ValidationError(
                     f"Asset with serial number '{value}' already exists.")
+
+
+class UpdateAssetSchema(Schema):
+    """
+    Marshmallow schema for validating Asset update data.
+    """
+
+    model_number = fields.Str(required=False, allow_none=True)
+    serial_number = fields.Str(required=False, allow_none=True)
+    category_id = fields.Int(required=False)
+    assigned_to = fields.Int(required=False)
+    location_id = fields.Int(required=False)
+    status_id = fields.Int(required=False)
+    department_id = fields.Int(required=False)
+    purchase_date = fields.Date(
+        required=False,
+        allow_none=True,
+        error_messages={
+            "invalid": "The 'purchase_date' must be in YYYY-MM-DD format."
+        },
+    )
+    warranty_expiry = fields.Date(
+        required=False,
+        allow_none=True,
+        error_messages={
+            "invalid": "The 'warranty_expiry' must be in YYYY-MM-DD format."
+        },
+    )
+    configuration = fields.Str(
+        required=False,
+        allow_none=True,
+        validate=fields.Length(max=1000),
+        error_messages={
+            "invalid": "The 'configuration' field must be a valid string.",
+            "max_length":
+            "The 'configuration' field cannot exceed 1000 characters.",
+        },
+    )
+
+    # -------------------
+    # VALIDATORS
+    # -------------------
+    @validates("category_id")
+    def validate_category_id(self, value):
+        if value and not db.session.get(Category, value):
+            raise ValidationError(f"Category with id {value} does not exist.")
+
+    @validates("assigned_to")
+    def validate_assigned_to(self, value):
+        if value and not db.session.get(User, value):
+            raise ValidationError(f"User with id {value} does not exist.")
+
+    @validates("location_id")
+    def validate_location_id(self, value):
+        if value and not db.session.get(Location, value):
+            raise ValidationError(f"Location with id {value} does not exist.")
+
+    @validates("status_id")
+    def validate_status_id(self, value):
+        if value and not db.session.get(Status, value):
+            raise ValidationError(f"Status with id {value} does not exist.")
+
+    @validates("department_id")
+    def validate_department_id(self, value):
+        if value and not db.session.get(Department, value):
+            raise ValidationError(
+                f"Department with id {value} does not exist.")
+
+    @validates("purchase_date")
+    def validate_purchase_date(self, value):
+        if value and value > datetime.now(timezone.utc).date():
+            raise ValidationError(
+                "The 'purchase_date' cannot be in the future.")
+
+    @validates("warranty_expiry")
+    def validate_warranty_expiry(self, value):
+        if value and "purchase_date" in self.context:
+            purchase_date = self.context["purchase_date"]
+            if purchase_date and value < purchase_date:
+                raise ValidationError(
+                    "The 'warranty_expiry' cannot be earlier \
+                        than the 'purchase_date'."
+                )
+
+    @validates("serial_number")
+    def validate_serial_number(self, value):
+        """
+        Ensure the serial_number is unique, excluding
+        the current asset being updated.
+        Requires 'asset_id' in context.
+        """
+        if value:
+            query = db.session.query(Asset).filter_by(serial_number=value)
+            if "asset_id" in self.context:
+                query = query.filter(Asset.id != self.context["asset_id"])
+            existing = query.first()
+            if existing:
+                raise ValidationError(
+                    f"Asset with serial number '{value}' already exists."
+                )
