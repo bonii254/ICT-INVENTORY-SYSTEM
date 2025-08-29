@@ -127,11 +127,11 @@ class UpdateAssetSchema(Schema):
 
     model_number = fields.Str(required=False, allow_none=True)
     serial_number = fields.Str(required=False, allow_none=True)
-    category_id = fields.Int(required=False)
-    assigned_to = fields.Int(required=False)
-    location_id = fields.Int(required=False)
-    status_id = fields.Int(required=False)
-    department_id = fields.Int(required=False)
+    category_id = fields.Int(required=False, allow_none=True)
+    assigned_to = fields.Int(required=False, allow_none=True)
+    location_id = fields.Int(required=False, allow_none=True)
+    status_id = fields.Int(required=False, allow_none=True)
+    department_id = fields.Int(required=False, allow_none=True)
     purchase_date = fields.Date(
         required=False,
         allow_none=True,
@@ -149,7 +149,7 @@ class UpdateAssetSchema(Schema):
     configuration = fields.Str(
         required=False,
         allow_none=True,
-        validate=fields.Length(max=1000),
+        validate=validate.Length(max=1000),
         error_messages={
             "invalid": "The 'configuration' field must be a valid string.",
             "max_length":
@@ -157,9 +157,6 @@ class UpdateAssetSchema(Schema):
         },
     )
 
-    # -------------------
-    # VALIDATORS
-    # -------------------
     @validates("category_id")
     def validate_category_id(self, value):
         if value and not db.session.get(Category, value):
