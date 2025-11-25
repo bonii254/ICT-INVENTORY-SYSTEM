@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import and_
+from flask_jwt_extended import get_jwt_identity
 from marshmallow import ValidationError
 from app.models.v1 import (Asset, User, Location, Department, Status, Category,
                            Consumables, Software)
@@ -47,6 +48,9 @@ def create_asset():
                 "error":
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
+        
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
         category = db.session.get(Category, asset_info["category_id"])
@@ -91,32 +95,15 @@ def create_asset():
             purchase_date=asset_info["purchase_date"],
             warranty_expiry=asset_info["warranty_expiry"],
             configuration=asset_info["configuration"],
-            department_id=asset_info["department_id"]
+            department_id=asset_info["department_id"],
+            domain_id=current_user.domain_id
         )
         db.session.add(new_asset)
         db.session.commit()
 
-        user = db.session.get(User, new_asset.assigned_to)
-        location = db.session.get(Location, new_asset.location_id)
-        department = db.session.get(Department, new_asset.department_id)
-        status = db.session.get(Status, new_asset.status_id)
-
         return jsonify({
             "message": "Asset created successfully",
-            "asset": {
-                "asset_tag": new_asset.asset_tag,
-                "name": new_asset.name,
-                "serial_number": new_asset.serial_number,
-                "model_number": new_asset.model_number,
-                "category": category.name,
-                "assigned_to": user.fullname,
-                "location": location.name,
-                "status": status.name,
-                "purchase_date": new_asset.purchase_date,
-                "warranty_expiry": new_asset.warranty_expiry,
-                "configuration": new_asset.configuration,
-                "department": department.name
-            }
+            "asset": new_asset.to_dict()
         }), 201
 
     except ValidationError as err:
@@ -148,9 +135,15 @@ def update_asset(asset_id):
                 "error":
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
-        asset = db.session.get(Asset, asset_id)
+            
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
+        
+        asset = Asset.query.filter_by(
+            id=asset_id, domain_id=current_user.domain_id).first()
         if not asset:
-            return jsonify({"error": "Asset not found"}), 404
+            return jsonify({"error": "Asset not found or unauthorized"}), 404
+        
 
         update_data = request.get_json()
         asset_info = UpdateAssetSchema().load(update_data)
@@ -249,11 +242,15 @@ def get_all_asset():
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
-        assets = Asset.query.all()
-        total = Asset.query.count()
+        current_user_id = get_jwt_identity()
+        user = db.session.get(User, current_user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        assets = Asset.query.filter_by(domain_id=user.domain_id).all()
         return jsonify({
-            "assets": [asset.to_dict() for asset in assets],
-            "total": total}), 200
+            "assets": [a.to_dict() for a in assets],
+            "total": len(assets)
+        }), 200
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
@@ -273,16 +270,12 @@ def search_assets():
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
-        name = request.args.get('name', None, type=str)
-        asset_tag = request.args.get('asset_tag', None, type=str)
-        serial_number = request.args.get('serial_number', None, type=str)
-        model_number = request.args.get('model_number', None, type=str)
-        category = request.args.get('category', None, type=str)
-        assigned_to = request.args.get('assigned_to', None, type=str)
-        location = request.args.get('location', None, type=str)
-        department = request.args.get('department', None, type=str)
-        page = request.args.get('page', type=int, default=1)
-        per_page = request.args.get('per_page', type=int, default=10)
+        current_user_id = get_jwt_identity()
+        user = db.session.get(User, current_user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        filters = [Asset.domain_id == user.domain_id]
 
         query = (
             db.session.query(Asset)
@@ -292,42 +285,43 @@ def search_assets():
             .join(Department, Asset.department_id == Department.id)
         )
 
-        filters = []
-
-        if name:
-            filters.append(Asset.name.ilike(f"%{name}%"))
-        if asset_tag:
-            filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
-        if serial_number:
-            filters.append(Asset.serial_number.ilike(f"%{serial_number}%"))
-        if model_number:
-            filters.append(Asset.model_number.ilike(f"%{model_number}%"))
-        if category:
-            filters.append(Category.name.ilike(f"%{category}%"))
-        if assigned_to:
-            filters.append(User.fullname.ilike(f"%{assigned_to}%"))
-        if location:
-            filters.append(Location.name.ilike(f"%{location}%"))
-        if department:
-            filters.append(Department.name.ilike(f"%{department}%"))
-
-        if filters:
-            query = query.filter(and_(*filters))
-
-        assets = query.paginate(page=page, per_page=per_page, error_out=False)
-
-        response = {
-            "assets": [asset.to_dict() for asset in assets.items],
-            "total": assets.total,
-            "page": assets.page,
-            "per_page": assets.per_page,
-            "pages": assets.pages
+        args = request.args
+        mapping = {
+            "name": Asset.name,
+            "asset_tag": Asset.asset_tag,
+            "serial_number": Asset.serial_number,
+            "model_number": Asset.model_number,
+            "category": Category.name,
+            "assigned_to": User.fullname,
+            "location": Location.name,
+            "department": Department.name
         }
-        return jsonify(response), 200
+
+        for key, column in mapping.items():
+            value = args.get(key)
+            if value:
+                filters.append(column.ilike(f"%{value}%"))
+
+        query = query.filter(and_(*filters))
+
+        page = args.get("page", type=int, default=1)
+        per_page = args.get("per_page", type=int, default=10)
+        paginated = query.paginate(
+            page=page, per_page=per_page, error_out=False)
+
+        return jsonify({
+            "assets": [a.to_dict() for a in paginated.items],
+            "total": paginated.total,
+            "page": paginated.page,
+            "per_page": paginated.per_page,
+            "pages": paginated.pages
+        }), 200
+
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
+
 
 @asset_bp.route("/count/assets", methods=["GET"])
 @jwt_required()
@@ -335,7 +329,8 @@ def get_inventory_counts():
     """
     Retrieve the total count of assets, consumables, and software.
     Returns:
-        - 200 OK: A JSON response containing the total counts for assets, consumables, and software.
+        - 200 OK: A JSON response containing the total counts 
+        for assets, consumables, and software.
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
@@ -365,56 +360,55 @@ def delete_assets():
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
-        name = request.args.get('name', None, type=str)
-        asset_tag = request.args.get('asset_tag', None, type=str)
-        serial_number = request.args.get('serial_number', None, type=str)
-        model_number = request.args.get('model_number', None, type=str)
-        category = request.args.get('category', None, type=str)
-        assigned_to = request.args.get('assigned_to', None, type=str)
-        location = request.args.get('location', None, type=str)
-        department = request.args.get('department', None, type=str)
+        current_user_id = get_jwt_identity()
+        user = db.session.get(User, current_user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
         query = (
             db.session.query(Asset)
             .join(User, Asset.assigned_to == User.id)
             .join(Category, Asset.category_id == Category.id)
             .join(Location, Asset.location_id == Location.id)
             .join(Department, Asset.department_id == Department.id)
+            .filter(Asset.domain_id == user.domain_id)
         )
 
         filters = []
+        args = request.args
+        mapping = {
+            "name": Asset.name,
+            "asset_tag": Asset.asset_tag,
+            "serial_number": Asset.serial_number,
+            "model_number": Asset.model_number,
+            "category": Category.name,
+            "assigned_to": User.fullname,
+            "location": Location.name,
+            "department": Department.name
+        }
 
-        if name:
-            filters.append(Asset.name.ilike(f"%{name}%"))
-        if asset_tag:
-            filters.append(Asset.asset_tag.ilike(f"%{asset_tag}%"))
-        if serial_number:
-            filters.append(Asset.serial_number.ilike(f"%{serial_number}%"))
-        if model_number:
-            filters.append(Asset.model_number.ilike(f"%{model_number}%"))
-        if category:
-            filters.append(Category.name.ilike(f"%{category}%"))
-        if assigned_to:
-            filters.append(User.fullname.ilike(f"%{assigned_to}%"))
-        if location:
-            filters.append(Location.name.ilike(f"%{location}%"))
-        if department:
-            filters.append(Department.name.ilike(f"%{department}%"))
+        for key, column in mapping.items():
+            value = args.get(key)
+            if value:
+                filters.append(column.ilike(f"%{value}%"))
 
         if filters:
             query = query.filter(and_(*filters))
+
         assets_to_delete = query.all()
         if not assets_to_delete:
-            return jsonify(
-                {"error": "No matching assets found for deletion"}), 404
-        deleted_count = len(assets_to_delete)
+            return jsonify({
+                "error": "No matching assets found for deletion"}), 404
+
+        count = len(assets_to_delete)
         for asset in assets_to_delete:
             db.session.delete(asset)
+
         db.session.commit()
         return jsonify({
-            "message": f"Successfully deleted {deleted_count} asset(s)."
-        }), 200
+            "message": f"Successfully deleted {count} asset(s)."}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({
-            "error": f"An unexpected error occurred: {str(e)}"
-        }), 500
+              "error": f"An unexpected error occurred: {str(e)}"}), 500
