@@ -9,11 +9,9 @@ class RegUserSchema(ma.Schema):
     fullname = fields.Str(
         required=True, validate=validate.Length(min=1, max=120))
     email = fields.Email(required=True, validate=validate.Length(max=120))
-    password = fields.Str(
-        required=True, validate=validate.Length(
-            min=6, error="Password must be at least 6 characters long."))
     role_id = fields.Integer(required=True)
     department_id = fields.Integer(required=True)
+    payroll_no = fields.Integer(required=True)
     domain_id = fields.Integer(required=True)
 
     @validates('email')
@@ -21,6 +19,12 @@ class RegUserSchema(ma.Schema):
         """Check if the email already exists in the database."""
         if User.query.filter_by(email=value).first():
             raise ValidationError("Email already registered.")
+        
+    @validates('payroll_no')
+    def validate_payroll_no(self, value):
+        """check if payroll number/id is unique"""
+        if User.query.filter_by(payroll_no=value).first():
+            raise ValidationError("Invalid payroll no")
 
     @validates('role_id')
     def validate_role_id(self, value):
@@ -34,10 +38,12 @@ class RegUserSchema(ma.Schema):
                 f"Department with id {value} does not exist.")
 
     @post_load
-    def hash_password(self, data, **kwargs):
-        """Hash the password before saving the user to the database."""
-        data['password'] = bcrypt.generate_password_hash(
-            data['password']).decode('utf-8')
+    def process_fields(self, data, **kwargs):
+        """normalize fullname and email."""
+        if 'fullname' in data and data['fullname']:
+            data['fullname'] = data['fullname'].title()
+        if 'email' in data and data['email']:
+            data['email'] = data['email'].lower()
         return data
 
 
@@ -59,6 +65,7 @@ class UpdateUserSchema(ma.Schema):
     email = fields.Email(required=False, validate=validate.Length(max=120))
     department = fields.Str(required=False, validate=validate.Length(max=60))
     role_id = fields.Integer(required=False)
+    payroll_no = fields.Integer(required=False)
     department_id = fields.Integer(required=False)
     domai_id = fields.Integer(required=False)
 
@@ -81,3 +88,18 @@ class UpdateUserSchema(ma.Schema):
             if not db.session.get(Department, value):
                 raise ValidationError(
                     f"Department with id {value} does not exist.")
+    @post_load
+    def process_fields(self, data, **kwargs):
+        """Normalize fullname and email before updating."""
+        if 'fullname' in data and data['fullname']:
+            data['fullname'] = data['fullname'].title()
+        if 'email' in data and data['email']:
+            data['email'] = data['email'].lower()
+        return data
+                
+                
+class UpdatePasswordSchema(ma.Schema):
+    current_password = fields.String(
+        required=True, validate=validate.Length(min=6))
+    new_password = fields.String(
+        required=True, validate=validate.Length(min=8))
