@@ -10,7 +10,7 @@ role_bp = Blueprint("role_bp", __name__)
 
 
 @role_bp.route('/register/role', methods=['POST'])
-#@jwt_required()
+@jwt_required()
 def create_role():
     """
     Create a new role.

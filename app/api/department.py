@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import Department
@@ -35,9 +35,15 @@ def create_department():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return jsonify({"error": "Unauthorized"}), 401
         dep_data = request.get_json()
         dep_info = RegDepSchema().load(dep_data)
-        new_dep = Department(name=dep_info["name"])
+        new_dep = Department(
+            name=dep_info["name"],
+            domain_id=current_user.domain_id
+        )
         db.session.add(new_dep)
         db.session.commit()
         return jsonify({
@@ -123,7 +129,7 @@ def get_department(department_id):
     try:
         if not department_id.isdigit():
             return jsonify({"Error": "Invalid department ID format"}), 400
-        department = db.session.get(Department, department_id)
+        department = Department.query.get(department_id)
         if department:
             return jsonify({
                 "department": {
@@ -141,7 +147,7 @@ def get_department(department_id):
 
 
 @dep_bp.route('/departments', methods=['GET'])
-#@jwt_required
+@jwt_required
 def get_all_departments():
     """
     Retrieve all departments.

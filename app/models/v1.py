@@ -11,7 +11,9 @@ class TimestampMixin:
     """
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(
-        db.DateTime, server_default=db.func.now(), server_onupdate=db.func.now()
+        db.DateTime, 
+        server_default=db.func.now(), 
+        server_onupdate=db.func.now()
     )
 
 
@@ -457,4 +459,65 @@ class ExternalMaintenance(BaseModel):
             "collected_by": self.collected_by,
             "received_by": self.received_by,
             "domain": self.domain.name if self.domain else None,
+        }
+
+
+class AssetLoan(BaseModel):
+    """
+    Represents a short-term loan of an asset 
+    (e.g., a laptop borrowed temporarily).
+    Tracks who borrowed it, when, and whether it has been returned.
+    """
+    __tablename__ = 'asset_loans'
+
+    asset_id = db.Column(
+        db.Integer,
+        db.ForeignKey('assets.id', ondelete="CASCADE"),
+        nullable=False
+    )
+
+    borrower_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete="SET NULL"),
+        nullable=True
+    )
+
+    loan_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    expected_return_date = db.Column(db.DateTime, nullable=True)
+    actual_return_date = db.Column(db.DateTime, nullable=True)
+
+    status = db.Column(
+        db.Enum('BORROWED', 'RETURNED', 'OVERDUE', name='loan_status'),
+        nullable=False,
+        default='BORROWED'
+    )
+
+    condition_before = db.Column(db.Text, nullable=True)
+    condition_after = db.Column(db.Text, nullable=True)
+    remarks = db.Column(db.Text, nullable=True)
+
+    asset = db.relationship('Asset', backref='loans', lazy=True)
+    borrower = db.relationship('User', backref='asset_loans', lazy=True)
+
+    def mark_returned(self, condition_after=None):
+        """Mark loan as returned and update asset status."""
+        self.actual_return_date = datetime.now(timezone.utc)
+        self.status = 'RETURNED'
+        if condition_after:
+            self.condition_after = condition_after
+        db.session.commit()
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "asset": self.asset.name if self.asset else None,
+            "borrower": self.borrower.fullname if self.borrower else None,
+            "loan_date": self.loan_date,
+            "expected_return_date": self.expected_return_date,
+            "actual_return_date": self.actual_return_date,
+            "status": self.status,
+            "condition_before": self.condition_before,
+            "condition_after": self.condition_after,
+            "remarks": self.remarks,
+            "domain": self.domain.name if self.domain else None
         }

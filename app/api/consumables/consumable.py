@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from marshmallow import ValidationError
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db, ma
-from app.models.v1 import Consumables
+from app.models.v1 import Consumables, User
 from utils.validations.consumables.con_validate import (
     RegConSchema, UpdateConSchema)
 
@@ -31,6 +31,9 @@ def register_consumable():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return jsonify({"error": "Unauthorized"}), 401
         consumable_data = request.get_json()
         validated_consumable_info = RegConSchema().load(consumable_data)
         new_consumable = Consumables(
@@ -40,7 +43,9 @@ def register_consumable():
             model=validated_consumable_info['model'],
             quantity=validated_consumable_info['quantity'],
             unit_of_measure=validated_consumable_info['unit_of_measure'],
-            reorder_level=validated_consumable_info['reorder_level']
+            reorder_level=validated_consumable_info['reorder_level'],
+            location_id=validated_consumable_info['location_id'],
+            domain_id=current_user.domain_id
         )
         db.session.add(new_consumable)
         db.session.commit()

@@ -14,6 +14,7 @@ class RegUserSchema(ma.Schema):
             min=6, error="Password must be at least 6 characters long."))
     role_id = fields.Integer(required=True)
     department_id = fields.Integer(required=True)
+    domain_id = fields.Integer(required=True)
 
     @validates('email')
     def validate_email(self, value):
@@ -59,6 +60,7 @@ class UpdateUserSchema(ma.Schema):
     department = fields.Str(required=False, validate=validate.Length(max=60))
     role_id = fields.Integer(required=False)
     department_id = fields.Integer(required=False)
+    domai_id = fields.Integer(required=False)
 
     @validates('email')
     def validate_email(self, value):

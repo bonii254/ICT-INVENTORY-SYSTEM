@@ -34,6 +34,7 @@ class RegConSchema(ma.Schema):
         error_messages={"invalid":
                         "Reorder level must be a non-negative integer."}
     )
+    location_id=fields.Int(required=False)
 
     @validates('name')
     def validate_name(self, value):

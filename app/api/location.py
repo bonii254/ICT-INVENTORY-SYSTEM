@@ -1,4 +1,4 @@
-from flask import jsonify, Blueprint, request
+from flask import jsonify, Blueprint, request, g
 from app.models.v1 import Location
 from app.extensions import db
 from flask_jwt_extended import jwt_required 
@@ -35,11 +35,15 @@ def create_location():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return jsonify({"error": "Unauthorized"})
         location_data = request.get_json()
         location_info = RegLocSchema().load(location_data)
         new_location = Location(
             name=location_info["name"],
             address=location_info["address"],
+            domain_id=current_user.domain_id
         )
         db.session.add(new_location)
         db.session.commit()

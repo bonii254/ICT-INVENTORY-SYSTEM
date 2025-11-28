@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from flask_jwt_extended import jwt_required
 from sqlalchemy import and_
 from flask_jwt_extended import get_jwt_identity
@@ -48,8 +48,9 @@ def create_asset():
                 "error":
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
-        current_user_id = get_jwt_identity()
-        current_user = db.session.get(User, current_user_id)
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return jsonify({"error": "Unauthorized"}), 401
         
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
@@ -136,11 +137,11 @@ def update_asset(asset_id):
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
             
-        current_user_id = get_jwt_identity()
-        current_user = db.session.get(User, current_user_id)
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return jsonify({"error": "Unauthorized"}), 401
         
-        asset = Asset.query.filter_by(
-            id=asset_id, domain_id=current_user.domain_id).first()
+        asset = db.session.get(Asset, asset_id)
         if not asset:
             return jsonify({"error": "Asset not found or unauthorized"}), 404
         
@@ -242,11 +243,7 @@ def get_all_asset():
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
-        current_user_id = get_jwt_identity()
-        user = db.session.get(User, current_user_id)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-        assets = Asset.query.filter_by(domain_id=user.domain_id).all()
+        assets = Asset.query.all()
         return jsonify({
             "assets": [a.to_dict() for a in assets],
             "total": len(assets)
@@ -256,33 +253,27 @@ def get_all_asset():
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
 
-
+ 
 @asset_bp.route("/assets/search", methods=["GET"])
 @jwt_required()
 def search_assets():
     """
     Search for assets based on various optional filters, including name,
-    asset tag, IP address, MAC address, category, assigned user, location,
-    and department.
-
+    asset tag, serial number, model number, category, assigned user, location,
+    and department. Automatically scoped to the current user's domain.
+    
     Returns:
-        - 200 OK: A paginated list of assets matching the filters.
-        - 500 Internal Server Error: If an exception occurs.
+        - 200 OK: Paginated list of filtered assets.
+        - 500 Internal Server Error: On unexpected exception.
     """
     try:
-        current_user_id = get_jwt_identity()
-        user = db.session.get(User, current_user_id)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        filters = [Asset.domain_id == user.domain_id]
-
         query = (
-            db.session.query(Asset)
-            .join(User, Asset.assigned_to == User.id)
-            .join(Category, Asset.category_id == Category.id)
-            .join(Location, Asset.location_id == Location.id)
-            .join(Department, Asset.department_id == Department.id)
+            Asset.query
+            .join(User, Asset.assigned_to == User.id, isouter=True)
+            .join(Category, Asset.category_id == Category.id, isouter=True)
+            .join(Location, Asset.location_id == Location.id, isouter=True)
+            .join(
+                Department, Asset.department_id == Department.id, isouter=True)
         )
 
         args = request.args
@@ -294,34 +285,36 @@ def search_assets():
             "category": Category.name,
             "assigned_to": User.fullname,
             "location": Location.name,
-            "department": Department.name
+            "department": Department.name,
         }
 
+        filters = []
         for key, column in mapping.items():
             value = args.get(key)
             if value:
                 filters.append(column.ilike(f"%{value}%"))
 
-        query = query.filter(and_(*filters))
+        if filters:
+            query = query.filter(and_(*filters))
 
         page = args.get("page", type=int, default=1)
         per_page = args.get("per_page", type=int, default=10)
+
         paginated = query.paginate(
             page=page, per_page=per_page, error_out=False)
 
         return jsonify({
-            "assets": [a.to_dict() for a in paginated.items],
+            "assets": [asset.to_dict() for asset in paginated.items],
             "total": paginated.total,
             "page": paginated.page,
             "per_page": paginated.per_page,
-            "pages": paginated.pages
+            "pages": paginated.pages,
         }), 200
 
     except Exception as e:
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
-
 
 @asset_bp.route("/count/assets", methods=["GET"])
 @jwt_required()

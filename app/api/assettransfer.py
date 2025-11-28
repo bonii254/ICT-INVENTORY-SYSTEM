@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import AssetTransfer, Asset, User
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.at_validate import RegATSchema, UpdateATSchema
 
 at_bp = Blueprint("at_bp", __name__)
@@ -41,16 +41,21 @@ def create_assettransfer():
                 "Unsupported Media Type. Content-Type" +
                     " must be application/json."
             }), 415
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         assettransfer_data = request.get_json()
         schema = RegATSchema(context={
             "asset_id": assettransfer_data.get("asset_id")
         })
         assettransfer_info = schema.load(assettransfer_data)
+        asset_id = assettransfer_info["asset_id"]
 
-        asset = db.session.get(Asset, assettransfer_info["asset_id"])
+        asset = Asset.query.filter_by(
+            id=asset_id, domain_id=current_user.domain_id
+            ).first()
 
         if not asset:
-            return jsonify({"error": "Asset not found"}), 404
+            return jsonify({"error": "Asset not found or not authorized"}), 404
 
         new_assettransfer = AssetTransfer(
             asset_id=assettransfer_info["asset_id"],
@@ -58,7 +63,8 @@ def create_assettransfer():
             to_location_id=assettransfer_info["to_location_id"],
             transferred_from=asset.assigned_to,
             transferred_to=assettransfer_info["transferred_to"],
-            notes=assettransfer_info["notes"]
+            notes=assettransfer_info["notes"],
+            domain_id = current_user.department_id
         )
         asset.assigned_to = assettransfer_info["transferred_to"]
         asset.location_id = assettransfer_info["to_location_id"]
@@ -156,7 +162,10 @@ def update_asset_transfer(id):
                 "Unsupported Media Type. Content-Type" +
                     " must be application/json."
             }), 415
-        asset_transfer = db.session.get(AssetTransfer, id)
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
+        asset_transfer = AssetTransfer.query.filter_by(
+            id=id, domain_id=current_user.id).first()
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
 

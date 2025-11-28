@@ -39,8 +39,7 @@ def reg_stocktransaction():
         user = db.session.get(User, int(get_jwt_identity()))
         if not user:
             return jsonify({"error": "user not found."}), 404
-        consumable = db.session.get(
-            Consumables, validated_data["consumable_id"])
+        consumable = Consumables.query.get(validated_data["consumable_id"])
         if not consumable:
             return jsonify({"error": "Consumable not found."}), 404
         transaction_type = validated_data["transaction_type"]

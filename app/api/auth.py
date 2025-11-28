@@ -4,7 +4,7 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 set_refresh_cookies, set_access_cookies)
 import redis
 from datetime import datetime
-from app.models.v1 import User, Department, Role
+from app.models.v1 import User, Department, Role, Domain
 from app.extensions import db, bcrypt, jwt
 from marshmallow import ValidationError
 from flask_limiter import Limiter
@@ -42,7 +42,8 @@ def create_user():
             password=user_info['password'],
             fullname=user_info['fullname'],
             department_id=user_info['department_id'],
-            role_id=user_info['role_id']
+            role_id=user_info['role_id'],
+            domain_id=user_info['domain_id']
         )
         db.session.add(new_user)
         db.session.commit()
@@ -52,7 +53,8 @@ def create_user():
                 "name": new_user.fullname,
                 "email": new_user.email,
                 "department_id": new_user.department_id,
-                "role_id": new_user.role_id
+                "role_id": new_user.role_id,
+                "domain_id": new_user.domain_id
             }
         }), 201
     except ValidationError as err:
@@ -215,6 +217,8 @@ def Update_User_Info(user_id):
             user.role_id = user_info['role_id']
         if 'department_id' in user_data:
             user.department_id = user_info['department_id']
+        if 'domain_id' in user_data:
+            user.domain_id == user_info['domain_id']
         db.session.commit()
         department = Department.query.get(user.department_id)
         role = Role.query.get(user.role_id)
@@ -223,12 +227,18 @@ def Update_User_Info(user_id):
         else:
             department_name = "Unknown Department"
         role_name = role.name if role else "Unknown Role"
+        domain = Domain.query.get(user.domain_id)
+        if domain:
+            domain_name = domain.name
+        else:
+            domain_name = "unknown domain"
         return jsonify({"Success": "User Updated",
                         "Details": {
                             "role_id": role_name,
                             "email": user.email,
                             "fullname": user.fullname,
-                            "department_id": department_name
+                            "department_id": department_name,
+                            "domain_id": domain_name
                         }}), 200
 
     except ValidationError as err:

@@ -9,7 +9,6 @@ class RegATSchema(ma.Schema):
     """
 
     asset_id = fields.Integer(required=True)
-
     to_location_id = fields.Integer(required=True)
     transferred_to = fields.Integer(required=True)
     notes = fields.String(required=True)

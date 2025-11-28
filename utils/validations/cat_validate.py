@@ -1,3 +1,4 @@
+from flask import g
 from marshmallow import ( 
     fields, post_load, validate, validates, ValidationError)
 from app.extensions import ma
@@ -15,6 +16,10 @@ class RegCatSchema(ma.Schema):
 
     @post_load
     def process_Category(self, data, **kwargs):
+        current_user = getattr(g, "current_user", None)
+        if not current_user:
+            return "Unauthorized"
+        data['domain_id'] = current_user.domain_id  
         data['name'] = data['name'].capitalize()
         return Category(**data)
 

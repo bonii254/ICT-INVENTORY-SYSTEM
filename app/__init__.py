@@ -3,6 +3,7 @@ from flask_cors import CORS
 from app.extensions import db, migrate, bcrypt, jwt, ma
 from app.blueprints.blueprint import register_blueprints
 from instance.config import app_config
+from app.hooks import register_request_hooks
 
 
 def create_app(config_name):
@@ -14,6 +15,7 @@ def create_app(config_name):
         supports_credentials=True)
 
     register_blueprints(app)
+    register_request_hooks(app)
 
     db.init_app(app)
     migrate.init_app(app, db)

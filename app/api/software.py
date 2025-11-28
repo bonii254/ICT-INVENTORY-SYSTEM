@@ -2,8 +2,8 @@ from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta, timezone
 from marshmallow import ValidationError
 from app.extensions import db
-from app.models.v1 import Software
-from flask_jwt_extended import jwt_required
+from app.models.v1 import Software, User
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.software_validate import (RegSoftwareSchema,
                                                    UpdateSoftwareSchema)
 
@@ -32,10 +32,13 @@ def create_software():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         software_data = request.get_json()
         software_info = RegSoftwareSchema().load(software_data)
         new_software = Software(
             name=software_info["name"],
+            domain_id=current_user.domain_id,
             version=software_info.get("version", None),
             license_key=software_info.get("license_key", None),
             expiry_date=software_info.get("expiry_date", None)
@@ -86,11 +89,16 @@ def update_software(software_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         software = db.session.get(Software, software_id)
+        software = Software.query.filter_by(
+            id=software_id, domain_id=current_user.domain_id).first()
         if not software:
-            return jsonify({
-                "error": f"Software with id {software_id} not found"
-            }), 404
+            return jsonify(
+                {"eror": "Sofftware not found or unauthorizeed"}
+            ), 404
+        
         software_data = request.get_json()
         software_info = UpdateSoftwareSchema().load(software_data)
         if 'name' in software_info:
@@ -132,8 +140,11 @@ def get_all_software():
             - 200: List of all software records.
             - 500: An unexpected server error occurred.
     """
+    current_user_id = get_jwt_identity()
+    current_user = db.session.get(User, current_user_id)
     try:
-        softwares = Software.query.all()
+        softwares = Software.query.filter_by(
+            domain_id=current_user.domain_id).all()
         software_list = [software.to_dict() for software in softwares]
         return jsonify({
             "Softwares": software_list
@@ -411,11 +422,16 @@ def delete_software(software_id):
             - 500: An unexpected server error occurred.
     """
     try:
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         software = db.session.get(Software, software_id)
+        software = Software.query.filter_by(
+            id=software_id, domain_id=current_user.domain_id).first()
         if not software:
             return jsonify({
-                "error": f"Software with id {software_id} not found"
-            }), 404
+                "eror": 
+                    f"Software with id {software_id} not found or unauthorizeed"}
+            ), 404
         db.session.delete(software)
         db.session.commit()
         return jsonify({

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from marshmallow import ValidationError 
 from app.extensions import db
 from app.models.v1 import Status
@@ -34,11 +34,13 @@ def create_status():
                 "error":
                 "Unsupported Media Type. Content-Type must be application/json"
             }), 415
+        current_user = getattr(g, 'current_user', None)
         status_data = request.get_json()
         status_info = RegStatusSchema().load(status_data)
         new_status = Status(
             name=status_info["name"],
-            description=status_info["description"]
+            description=status_info["description"],
+            domain_id=current_user.domain_id
         )
         db.session.add(new_status)
         db.session.commit()
