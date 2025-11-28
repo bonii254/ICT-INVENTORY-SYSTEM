@@ -7,6 +7,7 @@ from app.models.v1 import AssetLoan, Asset, User
 from utils.validations.asset_loan_validate import (
     AssetLoanCreateSchema, AssetLoanUpdateSchema)
 
+
 asset_loan_bp = Blueprint("asset_loan_bp", __name__)
 
 
@@ -42,7 +43,7 @@ def create_asset_loan():
         return jsonify({"error": str(e)}), 500
 
 
-@asset_loan_bp.route("/asset-loans", methods=["GET"])
+@asset_loan_bp.route("/assetloans", methods=["GET"])
 @jwt_required()
 def get_asset_loans():
     """Retrieve all asset loans for the current user's domain."""
@@ -125,7 +126,7 @@ def delete_asset_loan(id):
 
 @asset_loan_bp.route("/asset-loans", methods=["GET"])
 @jwt_required()
-def get_asset_loans():
+def list_asset_loans():
     """
     Retrieve asset loans with optional filters:
         - borrower_id: int

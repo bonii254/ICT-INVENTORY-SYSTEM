@@ -70,11 +70,11 @@ def create_asset():
         asset_tag = f"{base_tag}{new_number}"
 
         location = db.session.get(Location, asset_info["location_id"]).name[:4]
-        location = location.capitalize()
+        location = location.upper()
         department = db.session.get(
             Department, asset_info["department_id"]).name[:4]
-        department = department.capitalize()
-        base_name = f"{location}-{department}-{category_suffix.capitalize()}"
+        department = department.upper()
+        base_name = f"{location}-{department}-{category_suffix.upper()}"
         latest_asset_name = Asset.query.filter(
             Asset.name.like(f"{base_name}%")).order_by(
                 Asset.name.desc()).first()
@@ -181,12 +181,12 @@ def update_asset(asset_id):
             asset.asset_tag = f"{base_tag}{new_number}"
 
             location = db.session.get(Location, asset.location_id).name[:4]
-            location = location.capitalize()
+            location = location.upper()
             department = db.session.get(
                 Department, asset.department_id).name[:4]
-            department = department.capitalize()
+            department = department.upper()
 
-            base_name = f"{location}-{department}-{category_suffix.capitalize()}"
+            base_name = f"{location}-{department}-{category_suffix.upper()}"
             latest_asset_name = Asset.query.filter(
                 Asset.name.like(f"{base_name}%")
             ).order_by(Asset.name.desc()).first()

@@ -4,6 +4,7 @@ from app.extensions import db
 from flask_jwt_extended import jwt_required 
 from marshmallow import ValidationError 
 from utils.validations.loc_validate import RegLocSchema, UpdateLocSchema
+from utils.token_helpers import smart_title
 
 
 loc_bp = Blueprint("loc_bp", __name__)
@@ -41,7 +42,7 @@ def create_location():
         location_data = request.get_json()
         location_info = RegLocSchema().load(location_data)
         new_location = Location(
-            name=location_info["name"],
+            name=smart_title(location_info["name"]),
             address=location_info["address"],
             domain_id=current_user.domain_id
         )
@@ -89,7 +90,7 @@ def update_location(location_id):
         location_data = request.get_json()
         validated_location = UpdateLocSchema().load(location_data)
         if 'name' in validated_location:
-            location.name = validated_location['name']
+            location.name = smart_title(validated_location['name'])
         if 'address' in validated_location:
             location.address = validated_location['address']
         db.session.commit()

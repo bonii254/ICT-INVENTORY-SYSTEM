@@ -16,6 +16,18 @@ class TimestampMixin:
         server_onupdate=db.func.now()
     )
 
+class RevokedToken(db.Model):
+    __tablename__ = 'revoked_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    jti = db.Column(db.String(128), nullable=False, unique=True)
+    token_type = db.Column(db.String(20), nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    revoked_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+
 
 class DomainQuery(Query):
     """
@@ -31,7 +43,7 @@ class DomainQuery(Query):
             and self.column_descriptions
             and hasattr(self.column_descriptions[0]["entity"], "domain_id")
         ):
-            return self.filter_by(domain_id=domain_id)
+            return super(DomainQuery, self).filter_by(domain_id=domain_id)
         return self
 
     def __iter__(self):
@@ -40,23 +52,22 @@ class DomainQuery(Query):
 
     def get(self, ident):
         """Ensure domain scoping applies when fetching by ID."""
-        obj = super().get(ident)
-        if obj and getattr(
-            g, "domain_id", None) and obj.domain_id != g.domain_id:
+        obj = super(DomainQuery, self).get(ident)
+        if obj and getattr(g, "domain_id", None) and getattr(obj, "domain_id", None) != g.domain_id:
             return None
         return obj
 
     def all(self):
-        return self._domain_filter().all()
+        return super(DomainQuery, self._domain_filter()).all()
 
     def first(self):
-        return self._domain_filter().first()
+        return super(DomainQuery, self._domain_filter()).first()
 
     def count(self):
-        return self._domain_filter().count()
+        return super(DomainQuery, self._domain_filter()).count()
 
     def paginate(self, *args, **kwargs):
-        return self._domain_filter().paginate(*args, **kwargs)
+        return super(DomainQuery, self._domain_filter()).paginate(*args, **kwargs)
 
 
 class BaseModel(TimestampMixin, db.Model):
@@ -102,6 +113,8 @@ class Domain(BaseModel):
     software = db.relationship('Software', backref='domain', lazy=True)
     tickets = db.relationship('Ticket', backref='domain', lazy=True)
     categories = db.relationship('Category', backref='domain', lazy=True)
+    location = db.relationship('Location', backref='domain', lazy=True)
+    department = db.relationship('Department', backref='domain', lazy=True)
     statuses = db.relationship(
         'Status', backref='domain', lazy=True)
     consumables = db.relationship(
@@ -118,14 +131,14 @@ class Domain(BaseModel):
 
 class Role(BaseModel):
     __tablename__ = 'roles'
-    name = db.Column(db.String(50), nullable=False, unique=True)
+    name = db.Column(db.String(50), nullable=False)
     permissions = db.Column(db.Text)
     users = db.relationship('User', backref='role', lazy=True)
 
 
 class Department(BaseModel):
     __tablename__ = 'departments'
-    name = db.Column(db.String(100), nullable=False, unique=True)
+    name = db.Column(db.String(100), nullable=False)
     users = db.relationship('User', backref='department', lazy=True)
     assets = db.relationship('Asset', backref='department', lazy=True)
     transactions = db.relationship(
@@ -134,7 +147,7 @@ class Department(BaseModel):
 
 class Location(BaseModel):
     __tablename__ = 'locations'
-    name = db.Column(db.String(100), nullable=False, unique=True)
+    name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(255))
     assets = db.relationship(
         'Asset', backref='location', cascade="all, delete-orphan", lazy=True)
@@ -163,6 +176,12 @@ class User(BaseModel):
     fullname = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
+    payroll_no = db.Column(db.String(50), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)
+    password_changed_by = db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=True)
+    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     role_id = db.Column(
         db.Integer, 
@@ -270,6 +289,91 @@ class Software(BaseModel):
         secondary=software_asset_association, 
         back_populates='software'
     )
+    
+    
+class AssetLifecycle(BaseModel): 
+    """ Tracks lifecycle events of assets. """ 
+    __tablename__ = 'asset_lifecycles' 
+    id = db.Column(db.Integer, primary_key=True) 
+    asset_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('assets.id', ondelete="CASCADE"), 
+        nullable=False 
+    ) 
+    event = db.Column(db.String(255), nullable=False) 
+    notes = db.Column(db.Text) 
+    domain_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('domains.id', ondelete="SET NULL"), 
+        nullable=True 
+    ) 
+    def to_dict(self): 
+        return { 
+                "id": self.id, 
+                "asset_id": self.asset_id, 
+                "event": self.event, 
+                "notes": self.notes, 
+                "domain": self.domain.name if self.domain else None, 
+                "created_at": self.created_at.isoformat() \
+                    if self.created_at else None, 
+                "updated_at": self.updated_at.isoformat() \
+                    if self.updated_at else None 
+                }
+    
+    
+class AssetTransfer(BaseModel): 
+    """ Represents transfer records for assets. """ 
+    __tablename__ = 'asset_transfers' 
+    id = db.Column(db.Integer, primary_key=True) 
+    asset_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('assets.id', ondelete="CASCADE"), 
+        nullable=True
+    ) 
+    from_location_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('locations.id', ondelete="SET NULL"), 
+        nullable=True
+    ) 
+    to_location_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('locations.id', ondelete="SET NULL"), 
+        nullable=True
+    ) 
+    transferred_from = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete="SET NULL"), 
+        nullable=True 
+    ) 
+    transferred_to = db.Column(
+        db.Integer, 
+        db.ForeignKey('users.id', ondelete="SET NULL"), 
+        nullable=True
+    ) 
+    notes = db.Column(db.Text) 
+    domain_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('domains.id', ondelete="SET NULL"), 
+        nullable=True 
+    ) 
+    
+    def to_dict(self): 
+        return { 
+                "id": self.id, 
+                "asset": self.asset.name if self.asset else None, 
+                "from_location": self.from_location.name if \
+                    self.from_location else None, 
+                "to_location": self.to_location.name if \
+                    self.to_location else None, 
+                "transferred_from": self.sender.fullname if \
+                    self.sender else None, 
+                "transferred_to": self.receiver.fullname if \
+                    self.receiver else None, 
+                "domain": self.domain.name if self.domain else None, 
+                "notes": self.notes, 
+                "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"), 
+                "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
 
 
 class Ticket(BaseModel):
@@ -353,7 +457,9 @@ class Provider(BaseModel):
     )
 
     maintenance_records = db.relationship(
-        'ExternalMaintenance', backref='provider', lazy=True
+        'ExternalMaintenance', 
+        back_populates='provider', 
+        lazy=True
     )
 
     def to_dict(self):
@@ -367,8 +473,8 @@ class Provider(BaseModel):
             "provider_type": self.provider_type,
             "domain": self.domain.name if self.domain else None
         } 
- 
- 
+
+
 class ExternalMaintenance(BaseModel):
     __tablename__ = 'external_maintenance'
 
@@ -382,7 +488,6 @@ class ExternalMaintenance(BaseModel):
         db.ForeignKey('assets.id', ondelete="SET NULL"), 
         nullable=True
     )
-
     provider_id = db.Column(
         db.Integer, 
         db.ForeignKey('providers.id', ondelete="SET NULL"), 
@@ -436,7 +541,7 @@ class ExternalMaintenance(BaseModel):
     )
     provider = db.relationship(
         'Provider', 
-        backref='maintenance_records', 
+        back_populates='maintenance_records', 
         lazy=True
     )
 
@@ -444,8 +549,7 @@ class ExternalMaintenance(BaseModel):
         return {
             "id": self.id,
             "asset": self.asset.name if self.asset else None,
-            "parent_asset": self.parent_asset.name if \
-                self.parent_asset else None,
+            "parent_asset": self.parent_asset.name if self.parent_asset else None,
             "provider": self.provider.to_dict() if self.provider else None,
             "maintenance_type": self.maintenance_type,
             "description": self.description,
@@ -458,7 +562,7 @@ class ExternalMaintenance(BaseModel):
             "receipt_number": self.receipt_number,
             "collected_by": self.collected_by,
             "received_by": self.received_by,
-            "domain": self.domain.name if self.domain else None,
+            "domain": self.domain.name if getattr(self, "domain", None) else None,
         }
 
 

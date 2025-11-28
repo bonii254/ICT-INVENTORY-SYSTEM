@@ -1,193 +1,271 @@
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, request, jsonify, current_app as app, g
 from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, get_jwt, get_jwt_identity,
-                                set_refresh_cookies, set_access_cookies)
-import redis
-from datetime import datetime
-from app.models.v1 import User, Department, Role, Domain
-from app.extensions import db, bcrypt, jwt
+                                set_refresh_cookies, set_access_cookies,
+                                unset_jwt_cookies,)
+import secrets
+import traceback
+import string
+from flask_mail import Message
+from datetime import datetime, timezone
+from app.models.v1 import User, Department, Role, Domain, RevokedToken
+from app.extensions import db, bcrypt, jwt, mail
 from marshmallow import ValidationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from utils.validations.auth_validate import (
     RegUserSchema,
-    LoginSchema, UpdateUserSchema)
+    LoginSchema, UpdateUserSchema, UpdatePasswordSchema)
+from utils.token_helpers import is_token_revoked, admin_required
+from utils.email_helper import send_welcome_email, send_password_changed_email
 
 
 auth_bp = Blueprint("auth", __name__)
-BLACKLIST_PREFIX = "jwt_blacklist_"
 
 limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
-redis_client = redis.Redis(
-                host='127.0.0.1',
-                port=6379,
-                decode_responses=True
-        )
-
 
 @auth_bp.route('/auth/register', methods=['POST'])
+@jwt_required()
 def create_user():
-    """create new user"""
+    """Register a new user and send password via email."""
     try:
         if not request.is_json:
             return jsonify({
-                "error": "Unsupported Media Type. \
-                Content-Type must be application/json."}), 415
+                "error": 
+                    "Unsupported Media Type. Content-Type must be application/json."
+            }), 415
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         user_data = request.get_json()
         user_info = RegUserSchema().load(user_data)
+
+        alphabet = string.ascii_letters + string.digits + string.punctuation
+        raw_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+        hashed_password = bcrypt.generate_password_hash(
+            raw_password).decode('UTF-8')
+
         new_user = User(
             email=user_info['email'],
-            password=user_info['password'],
+            password=hashed_password,
             fullname=user_info['fullname'],
             department_id=user_info['department_id'],
+            payroll_no=user_info['payroll_no'],
             role_id=user_info['role_id'],
-            domain_id=user_info['domain_id']
+            domain_id=current_user.domain_id,
+            is_active=user_info.get('is_active', True),
         )
+
         db.session.add(new_user)
         db.session.commit()
+        new_user.must_change_password = True
+        new_user.password_changed_by = current_user_id
+        new_user.password_changed_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        send_welcome_email(new_user.fullname, new_user.email, raw_password)
+
+
         return jsonify({
-            "message": "User registered successfully!",
+            "message": "User registered successfully! Login credentials have been sent to the user’s email.",
             "user": {
                 "name": new_user.fullname,
                 "email": new_user.email,
                 "department_id": new_user.department_id,
                 "role_id": new_user.role_id,
-                "domain_id": new_user.domain_id
+                "domain_id": new_user.domain_id,
+                "payroll_no": new_user.payroll_no
             }
         }), 201
+
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
     except Exception as e:
+        print("Exception occurred:")
+        traceback.print_exc()
         db.session.rollback()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
 
 
-@auth_bp.route('/auth/login', methods=['POST'], strict_slashes=False)
+@auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
     try:
         if not request.is_json:
             return jsonify({
-                "error": "Unsupported Media Type. \
-                    Content-Type must be application/json."
+                "error": "Content-Type must be application/json"
             }), 415
 
-        user_data = request.get_json()
-        user_info = LoginSchema().load(user_data)
+        data = request.get_json()
+        credentials = LoginSchema().load(data)
 
-        email = user_info.get('email')
-        password = user_info.get('password')
+        user = User.query.filter_by(email=credentials['email']).first()
 
-        user = User.query.filter_by(email=email).first()
-        if user and bcrypt.check_password_hash(user.password, password):
-            access_token = create_access_token(identity=str(user.id))
-            refresh_token = create_refresh_token(identity=str(user.id))
+        if not user or not bcrypt.check_password_hash(
+            user.password, credentials['password']):
+            return jsonify({"error": "Invalid email or password"}), 401
 
-            response = jsonify({
-                "user": {
-                    "fullname": user.fullname,
-                    "email": user.email,
-                    "department_id": user.department_id,
-                    "role_id": user.role_id
-                }
-            })
+        if not user.is_active:
+            return jsonify({"error": "Account is deactivated"}), 403
 
-            set_access_cookies(response, access_token)
-            set_refresh_cookies(response, refresh_token)
+        access_token = create_access_token(identity=str(user.id))
+        refresh_token = create_refresh_token(identity=str(user.id))
 
-            return response
+        response = jsonify({
+            "message": "Login successful",
+            "user": user.to_dict(),
+        })
+        set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
+        
+        user.last_login = datetime.now(timezone.utc)
+        db.session.commit()
 
-        return jsonify({"message": "Invalid email or password"}), 401
+        return response, 200
 
     except ValidationError as err:
-        return jsonify({"error": err.messages}), 400
+        return jsonify({"errors": err.messages}), 400
+
     except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
-
-
-@auth_bp.route('/auth/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    "logout a user by disabling access token"
-    jti = get_jwt()["jti"]
-    token_type = get_jwt()["type"]
-    exp_timestamp = get_jwt()["exp"]
-    now = int(datetime.utcnow().timestamp())
-    ttl = exp_timestamp - now
-    redis_client.setex(f"{BLACKLIST_PREFIX}{token_type}_{jti}", ttl, 1)
-    redis_client.setex(f"{BLACKLIST_PREFIX}refresh_{jti}", ttl, 1)
-    return jsonify({"msg": "Successfully logged out"}), 200
-
+        print("Exception occurred:")
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
 
 @jwt.token_in_blocklist_loader
-def check_if_token_in_blacklist(jwt_header, jwt_payload):
-    jti = jwt_payload["jti"]
-    token_type = jwt_payload.get("type", "access")
-    return redis_client.exists(f"{BLACKLIST_PREFIX}{token_type}_{jti}") > 0
+def check_if_token_revoked(jwt_header, jwt_payload):
+    return is_token_revoked(jwt_payload)
 
-@auth_bp.route('/verify-token', methods=['GET'])
+
+@auth_bp.route('/auth/admin/reset-password/<int:user_id>', methods=['POST'])
 @jwt_required()
-def verify_token():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "Invalid user"}), 401
-    department = db.session.get(Department, user.department_id) \
-            if user.department_id else None
-    role = db.session.get(Role, user.role_id) if user.role_id else None
-    if department:
-        department_name = department.name
-    else:
-        department_name = "Unknown Department"
-    role_name = role.name if role else "Unknown Role"
+@admin_required
+def admin_reset_password(user_id):
+    """
+    Admin resets another user's password.
+    Body (optional): {"new_password": "StrongPass#123"} — if omitted, 
+    random password is generated.
+    Sets must_change_password = True.
+    """
+    if not request.is_json:
+        return jsonify({
+            "error": "Content-Type must be application/json."}), 415
 
-    return jsonify({
-        "id": user.id,
-        "fullname": user.fullname,
-        "email": user.email,
-        "department": department_name,
-        "role": role_name
-    }), 200
+    try:
+        caller = db.session.get(User, get_jwt_identity())
+        target = db.session.get(User, user_id)
+        if not target:
+            return jsonify({"error": "Target user not found."}), 404
+
+        body = request.get_json() or {}
+        new_password = body.get("new_password")
+        if new_password:
+            pass
+        else:
+            alphabet = string.ascii_letters + string.digits + string.punctuation
+            new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+
+        target.password = bcrypt.generate_password_hash(
+            new_password).decode('utf-8')
+        target.must_change_password = True
+        target.password_changed_by = caller.id
+        target.password_changed_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        try:
+            send_password_changed_email(
+                target.fullname, target.email, new_password)
+        except Exception:
+            app.logger.exception("Failed to send admin-reset email (non-fatal)")
+
+        return jsonify({
+            "message": "Password reset. User will be required to change it on next login.",
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception(e)
+        return jsonify({"error": "Unexpected server error"}), 500
+    
+    
+@auth_bp.route('/auth/update-password', methods=['PUT'])
+@jwt_required()
+def update_password():
+    """Owner updates their own password. Clears must_change_password."""
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json."}), 415
+
+    try:
+        data = request.get_json()
+        validated_data = UpdatePasswordSchema().load(data)
+
+        current_user_id = get_jwt_identity()
+        user = db.session.get(User, current_user_id)
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+
+        if not bcrypt.check_password_hash(user.password, validated_data["current_password"]):
+            return jsonify({"error": "Current password is incorrect."}), 401
+
+        user.password = bcrypt.generate_password_hash(validated_data["new_password"]).decode('utf-8')
+        user.must_change_password = False
+        user.password_changed_by = user.id
+        user.password_changed_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({"message": "Password updated successfully."}), 200
+
+    except ValidationError as err:
+        return jsonify({"errors": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception(e)
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 
-@auth_bp.route('/auth/refresh', methods=['POST'])
+@auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
     try:
-        jti = get_jwt()["jti"]
-        if redis_client.exists(f"{BLACKLIST_PREFIX}refresh_{jti}"):
-            return jsonify({"error": "Token has been revoked"}), 401
-
         current_user_id = get_jwt_identity()
-        new_access_token = create_access_token(identity=current_user_id)
+        access_token = create_access_token(identity=current_user_id)
 
-        user = User.query.get(current_user_id)
-        if not user:
-            return jsonify({"error": "Invalid user"}), 404
+        response = jsonify({"message": "Access token refreshed"})
+        set_access_cookies(response, access_token)
 
-        department = db.session.get(Department, user.department_id) \
-            if user.department_id else None
-        role = db.session.get(Role, user.role_id) if user.role_id else None
-
-        response = jsonify({
-            "msg": "Token refreshed successfully",
-            "user": {
-                "fullname": user.fullname,
-                "email": user.email,
-                "department_id": department.name if department else None,
-                "role_id": role.name if role else None
-            }
-        })
-
-        set_access_cookies(response, new_access_token)
         return response, 200
 
     except Exception as e:
-        return jsonify({"Error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required(refresh=True)
+def logout():
+    try:
+        jwt_payload = get_jwt()
+        jti = jwt_payload["jti"]
+        token_type = jwt_payload["type"]
+        expires = datetime.fromtimestamp(jwt_payload["exp"], tz=timezone.utc)
+
+        revoked_token = RevokedToken(
+            jti=jti,
+            token_type=token_type,
+            expires_at=expires,
+            revoked_at=datetime.now(timezone.utc)
+        )
+        db.session.add(revoked_token)
+        db.session.commit()
+
+        response = jsonify({"message": "Successfully logged out"})
+        unset_jwt_cookies(response)
+        return response, 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @auth_bp.route('/auth/update/<user_id>', methods=['PUT'])
@@ -303,7 +381,8 @@ def get_all_users():
         JSON response with list of users (200) or error message (500).
     """
     try:
-        users = User.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        users = User.query.filter_by(domain_id=current_user.domain_id).all()
         user_list = []
         for user in users:
             department = db.session.get(

@@ -6,6 +6,7 @@ from app.models.v1 import Software, User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.software_validate import (RegSoftwareSchema,
                                                    UpdateSoftwareSchema)
+from utils.token_helpers import smart_title
 
 
 sofware_bp = Blueprint("software_bp", __name__)
@@ -37,7 +38,7 @@ def create_software():
         software_data = request.get_json()
         software_info = RegSoftwareSchema().load(software_data)
         new_software = Software(
-            name=software_info["name"],
+            name=smart_title(software_info["name"]),
             domain_id=current_user.domain_id,
             version=software_info.get("version", None),
             license_key=software_info.get("license_key", None),
@@ -102,7 +103,7 @@ def update_software(software_id):
         software_data = request.get_json()
         software_info = UpdateSoftwareSchema().load(software_data)
         if 'name' in software_info:
-            software.name = software_info['name']
+            software.name = smart_title(software_info['name'])
         if 'version' in software_info:
             software.version = software_info['version']
         if 'license_key' in software_info:

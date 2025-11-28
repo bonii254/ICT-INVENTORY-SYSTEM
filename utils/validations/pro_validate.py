@@ -36,7 +36,7 @@ class BaseProviderSchema(Schema):
         """Trim whitespace from string fields before validation."""
         for key, value in data.items():
             if isinstance(value, str):
-                data[key] = value.strip()
+                data[key] = value.strip().capitalize()
         return data
 
 

@@ -4,6 +4,7 @@ from app.extensions import db
 from app.models.v1 import Department
 from flask_jwt_extended import jwt_required
 from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
+from utils.token_helpers import smart_title
 
 
 dep_bp = Blueprint("dep_bp", __name__)
@@ -41,7 +42,7 @@ def create_department():
         dep_data = request.get_json()
         dep_info = RegDepSchema().load(dep_data)
         new_dep = Department(
-            name=dep_info["name"],
+            name=smart_title(dep_info["name"]),
             domain_id=current_user.domain_id
         )
         db.session.add(new_dep)
@@ -95,7 +96,7 @@ def update_department(department_id):
         department_data = request.get_json()
         updated_data = UpdateDepSchema().load(department_data)
         if 'name' in updated_data:
-            department.name = updated_data['name']
+            department.name = smart_title(updated_data['name'])
         db.session.commit()
         return jsonify({
             "message": "Department updated successfully!",

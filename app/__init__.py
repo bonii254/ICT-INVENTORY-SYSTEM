@@ -1,9 +1,10 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from app.extensions import db, migrate, bcrypt, jwt, ma
+from app.extensions import db, migrate, bcrypt, jwt, ma, scheduler, mail
 from app.blueprints.blueprint import register_blueprints
 from instance.config import app_config
 from app.hooks import register_request_hooks
+from utils.token_helpers import init_scheduler
 
 
 def create_app(config_name):
@@ -22,6 +23,7 @@ def create_app(config_name):
     bcrypt.init_app(app)
     jwt.init_app(app)
     ma.init_app(app)
+    mail.init_app(app)
 
     @jwt.invalid_token_loader
     def invalid_token_callback(reason):
@@ -30,5 +32,9 @@ def create_app(config_name):
     @jwt.unauthorized_loader
     def missing_token_callback(reason):
         return jsonify({"error": "Authentication required"}), 401
+    
+    init_scheduler(app)
+    if not scheduler.running:
+        scheduler.start()
 
     return app

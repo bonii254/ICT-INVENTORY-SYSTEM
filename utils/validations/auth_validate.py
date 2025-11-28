@@ -11,8 +11,8 @@ class RegUserSchema(ma.Schema):
     email = fields.Email(required=True, validate=validate.Length(max=120))
     role_id = fields.Integer(required=True)
     department_id = fields.Integer(required=True)
-    payroll_no = fields.Integer(required=True)
-    domain_id = fields.Integer(required=True)
+    payroll_no = fields.Str(required=True)
+    is_active = fields.Integer(required=False)
 
     @validates('email')
     def validate_email(self, value):
@@ -68,6 +68,7 @@ class UpdateUserSchema(ma.Schema):
     payroll_no = fields.Integer(required=False)
     department_id = fields.Integer(required=False)
     domai_id = fields.Integer(required=False)
+    is_active = fields.Integer(required=False)
 
     @validates('email')
     def validate_email(self, value):

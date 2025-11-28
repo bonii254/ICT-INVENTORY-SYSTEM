@@ -1,7 +1,7 @@
 from flask import g
 from flask_jwt_extended import get_jwt_identity
 from app.extensions import db
-from app.models import User
+from app.models.v1 import User
 
 def register_request_hooks(app):
     """Attach user and domain context before each request."""
