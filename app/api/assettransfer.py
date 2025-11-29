@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+import traceback
 from marshmallow import ValidationError
 from app.extensions import db
 from app.models.v1 import AssetTransfer, Asset, User
@@ -66,8 +67,12 @@ def create_assettransfer():
             notes=assettransfer_info["notes"],
             domain_id = current_user.department_id
         )
+        new_user = db.session.get(User, assettransfer_info["transferred_to"])
+        if not new_user:
+            return jsonify({"error": "Receiving user not found."}), 404
         asset.assigned_to = assettransfer_info["transferred_to"]
         asset.location_id = assettransfer_info["to_location_id"]
+        asset.department_id = new_user.department_id
         db.session.add(new_assettransfer)
         db.session.commit()
         return jsonify({
@@ -80,6 +85,8 @@ def create_assettransfer():
         }), 400
     except Exception as e:
         db.session.rollback()
+        print("Exception occurred:")
+        traceback.print_exc()
         return jsonify({
             "error": f"An unexpected erroroccured: {str(e)}"
         }), 500
@@ -98,7 +105,9 @@ def get_all_asset_transfers():
         JWT required.
     """
     try:
-        asset_transfers = AssetTransfer.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        asset_transfers = AssetTransfer.query.filter_by(
+            domain_id=current_user.domain_id).all()
         asset_transfer_list = [
             transfer.to_dict() for transfer in asset_transfers
         ]
@@ -126,7 +135,9 @@ def get_asset_transfer(id):
         JWT required.
     """
     try:
-        asset_transfer = db.session.get(AssetTransfer, id)
+        current_user = db.session.get(User, get_jwt_identity())
+        asset_transfer = AssetTransfer.query.filter_by(
+            domain_id=current_user.domain_id, id=id).first()
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
         return jsonify(asset_transfer.to_dict()), 200
@@ -220,7 +231,9 @@ def delete_asset_transfer(id):
         JWT required.
     """
     try:
-        asset_transfer = db.session.get(AssetTransfer, id)
+        current_user = db.session.get(User, get_jwt_identity())
+        asset_transfer = AssetTransfer.query.filter_by(
+            domain_id=current_user.domain_id, id=id).first()
         if not asset_transfer:
             return jsonify({"error": "Asset transfer not found"}), 404
         db.session.delete(asset_transfer)

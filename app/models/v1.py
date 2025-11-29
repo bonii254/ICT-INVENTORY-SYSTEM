@@ -355,7 +355,16 @@ class AssetTransfer(BaseModel):
         db.Integer, 
         db.ForeignKey('domains.id', ondelete="SET NULL"), 
         nullable=True 
-    ) 
+    )
+    asset = db.relationship("Asset", backref="transfers")
+    sender = db.relationship(
+        "User", 
+        foreign_keys=[transferred_from], 
+        backref="sent_transfers")
+    receiver = db.relationship(
+        "User", 
+        foreign_keys=[transferred_to], 
+        backref="received_transfers")
     
     def to_dict(self): 
         return { 
