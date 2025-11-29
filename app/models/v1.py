@@ -480,7 +480,7 @@ class Provider(BaseModel):
             "phone": self.phone,
             "address": self.address,
             "provider_type": self.provider_type,
-            "domain": self.domain.name if self.domain else None
+            "domain_id": self.domain_id
         } 
 
 
