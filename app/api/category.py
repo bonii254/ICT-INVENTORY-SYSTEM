@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
 from app.extensions import db
-from app.models.v1 import Category
-from flask_jwt_extended import jwt_required
+from app.models.v1 import Category, User
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.cat_validate import RegCatSchema, UpdateCatSchema
 
 
@@ -34,8 +34,14 @@ def create_category():
                 "error": "Unsupported Media Type. \
                     Content-Type must be application/json."
             }), 415
+        current_user = db.session.get(User, get_jwt_identity())
         cat_data = request.get_json()
-        new_cat = RegCatSchema().load(cat_data)
+        cat_info = RegCatSchema().load(cat_data)
+        new_cat = Category(
+            name = cat_info["name"].capitalize(),
+            description = cat_info["description"],
+            domain_id = current_user.domain_id
+        )
         db.session.add(new_cat)
         db.session.commit()
         return jsonify({
@@ -72,7 +78,9 @@ def update_category(category_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        category = db.session.get(Category, category_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        category = Category.query.filter_by(
+            domain_id=current_user.domain_id, id=category_id).first()
         if not category:
             return jsonify({
                 "error": f"category with ID {category_id} not found."
@@ -115,7 +123,9 @@ def get_category(category_id):
         - 500: JSON error for server issues.
     """
     try:
-        category = Category.query.get(category_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        category = Category.query.filter_by(
+            domain_id=current_user.domain_id, id=category_id).first()
         if category:
             return jsonify({
                 "category": {
@@ -143,7 +153,8 @@ def get_all_categories():
         or an error message if unsuccessful.
     """
     try:
-        categories = Category.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        categories = Category.query.filter_by(domain_id=current_user.domain_id)
         category_list = [
             {
                 "id": category.id,
@@ -170,7 +181,9 @@ def delete_category(category_id):
         or an error message if the category does not exist.
     """
     try:
-        category = db.session.get(Category, category_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        category = Category.query.filter_by(
+            domain_id=current_user.domain_id, id=category_id).first()
         if category:
             db.session.delete(category)
             db.session.commit()
