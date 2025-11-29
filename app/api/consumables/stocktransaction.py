@@ -39,14 +39,17 @@ def reg_stocktransaction():
         user = db.session.get(User, int(get_jwt_identity()))
         if not user:
             return jsonify({"error": "user not found."}), 404
-        consumable = Consumables.query.get(validated_data["consumable_id"])
+        consumable = Consumables.query.filter_by(
+            domain_id=user.domain_id, 
+            id=validated_data["consumable_id"]
+            ).first()
         if not consumable:
             return jsonify({"error": "Consumable not found."}), 404
         transaction_type = validated_data["transaction_type"]
         quantity = validated_data["quantity"]
         if transaction_type == "IN":
             consumable.quantity += quantity
-            alert = Alert.query.filter_by(
+            alert = Alert.query.filter_by(  
                 consumable_id=consumable.id, status="PENDING").first()
             if alert and consumable.quantity >= consumable.reorder_level:
                 alert.status = "RESOLVED"
@@ -57,19 +60,24 @@ def reg_stocktransaction():
                     "error": "Insufficient stock for this transaction."}), 400
             consumable.quantity -= quantity
             if consumable.quantity < consumable.reorder_level:
-                new_alert = Alert(
-                    consumable_id=consumable.id,
-                    message=f"Stock for {consumable.name}" +
-                    " is below reorder level.",
-                    status="PENDING"
-                )
-                db.session.add(new_alert)
+                existing_alert = Alert.query.filter_by(
+                    consumable_id=consumable.id, status="PENDING").first()
+                if not existing_alert:
+                    new_alert = Alert(
+                        consumable_id=consumable.id,
+                        message=f"Stock for {consumable.name}" +
+                        " is below reorder level.",
+                        status="PENDING",
+                        domain_id=user.domain_id
+                    )
+                    db.session.add(new_alert)
         new_transaction = StockTransaction(
             consumable_id=validated_data["consumable_id"],
             department_id=validated_data["department_id"],
             transaction_type=transaction_type,
             quantity=quantity,
-            user_id=user.id
+            user_id=user.id,
+            domain_id=user.domain_id
         )
         db.session.add(new_transaction)
         db.session.commit()
@@ -101,7 +109,9 @@ def get_all_transactions():
         - 500: Internal server error if an unexpected error occurs.
     """
     try:
-        transactions = StockTransaction.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        transactions = StockTransaction.query.filter_by(
+            domain_id=current_user.domain_id).all()
         return jsonify({
             "Transactions":
             [t.to_dict() for t in transactions]
@@ -217,7 +227,9 @@ def delete_transaction(transaction_id):
         - 500: Internal server error if an unexpected error occurs.
     """
     try:
-        transaction = db.session.get(StockTransaction, transaction_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        transaction = StockTransaction.query.filter_by(
+            domain_id=current_user.domain_id, id=transaction_id).first()
         if not transaction:
             return jsonify({"error": "Transaction not found."}), 404
         consumable = db.session.get(Consumables, transaction.consumable_id)
@@ -260,7 +272,8 @@ def get_all_alerts():
     Retrieves all active (pending) alerts.
     """
     try:
-        alerts = Alert.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        alerts = Alert.query.filter_by(domain_id=current_user.domain_id).all()
         return jsonify([alert.to_dict() for alert in alerts]), 200
     except Exception as e:
         db.session.rollback()
@@ -276,7 +289,9 @@ def get_pending_alerts():
     Retrieves all active (pending) alerts.
     """
     try:
-        alerts = Alert.query.filter_by(status="PENDING").all()
+        current_user = db.session.get(User, get_jwt_identity())
+        alerts = Alert.query.filter_by(
+            status="PENDING", domain_id=current_user.domain_id).all()
         return jsonify([alert.to_dict() for alert in alerts]), 200
     except Exception as e:
         db.session.rollback()
