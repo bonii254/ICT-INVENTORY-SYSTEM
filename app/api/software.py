@@ -172,11 +172,14 @@ def search_software():
             - 500: An unexpected server error occurred.
     """
     try:
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         name = request.args.get("name", None)
         version = request.args.get("version", None)
         license_key = request.args.get("license_key", None)
 
-        query = Software.query
+        query = Software.query.filter(
+            Software.domain_id == current_user.domain_id)
         if name:
             query = query.filter(Software.name.ilike(f"%{name}%"))
         if version:
@@ -209,6 +212,8 @@ def check_license_status():
             - 500: An unexpected server error occurred.
     """
     try:
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
         days = int(request.args.get("days", 30))
         if days < 0:
             return jsonify({

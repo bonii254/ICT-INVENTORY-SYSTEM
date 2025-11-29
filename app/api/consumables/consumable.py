@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db, ma
@@ -31,9 +31,7 @@ def register_consumable():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        current_user = getattr(g, "current_user", None)
-        if not current_user:
-            return jsonify({"error": "Unauthorized"}), 401
+        current_user = db.session.get(User, get_jwt_identity())
         consumable_data = request.get_json()
         validated_consumable_info = RegConSchema().load(consumable_data)
         new_consumable = Consumables(
@@ -89,7 +87,9 @@ def update_consumable(id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        consumable = db.session.get(Consumables, id)
+        current_user = db.session.get(User, get_jwt_identity())
+        consumable = Consumables.query.filter_by(
+            domain_id=current_user.domain_id, id=id).first()
         if not consumable:
             return jsonify(
                 {"error": f"Consumable with id {id} not found."}), 404
@@ -147,7 +147,9 @@ def get_consumable(id):
                 during processing.
     """
     try:
-        consumable = db.session.get(Consumables, id)
+        current_user = db.session.get(User, get_jwt_identity())
+        consumable = Consumables.query.filter_by(
+            domain_id=current_user.domain_id, id=id).first()
         if not consumable:
             return jsonify(
                 {"error": f"Consumable with id {id} not found."}), 404
@@ -174,7 +176,9 @@ def get_all_consumable():
                 processing.
     """
     try:
-        consumables = Consumables.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        consumables = Consumables.query.filter_by(
+            domain_id=current_user.domain_id).all()
         if consumables:
             consumable_list = [
                 consumable.to_dict() for consumable in consumables
@@ -211,7 +215,9 @@ def delete_consumable(id):
                  during processing.
     """
     try:
-        consumable = db.session.get(Consumables, id)
+        current_user = db.session.get(User, get_jwt_identity())
+        consumable = Consumables.query.filter_by(
+            domain_id=current_user.domain_id, id=id).first()
         if not consumable:
             return jsonify(
                 {"error": f"Consumable with id {id} not found."}), 404

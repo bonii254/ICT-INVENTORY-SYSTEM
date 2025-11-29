@@ -14,14 +14,6 @@ class RegCatSchema(ma.Schema):
         if Category.query.filter(Category.name.ilike(value)).first():
             raise ValidationError(f"Category name '{value}' already exists.")
 
-    @post_load
-    def process_Category(self, data, **kwargs):
-        current_user = getattr(g, "current_user", None)
-        if not current_user:
-            return "Unauthorized"
-        data['domain_id'] = current_user.domain_id  
-        data['name'] = data['name'].capitalize()
-        return Category(**data)
 
 class UpdateCatSchema(ma.Schema):
     name = fields.Str(validate=validate.Length(min=1, max=120))

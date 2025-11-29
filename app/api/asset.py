@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request
+import traceback
 from flask_jwt_extended import jwt_required
 from sqlalchemy import and_
 from flask_jwt_extended import get_jwt_identity
@@ -48,9 +49,7 @@ def create_asset():
                 "error":
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
-        current_user = getattr(g, "current_user", None)
-        if not current_user:
-            return jsonify({"error": "Unauthorized"}), 401
+        current_user = db.session.get(User, get_jwt_identity())
         
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
@@ -91,12 +90,12 @@ def create_asset():
             model_number=asset_info["model_number"],
             category_id=asset_info["category_id"],
             assigned_to=asset_info["assigned_to"],
-            location_id=asset_info["location_id"],
-            status_id=asset_info["status_id"],
-            purchase_date=asset_info["purchase_date"],
-            warranty_expiry=asset_info["warranty_expiry"],
-            configuration=asset_info["configuration"],
-            department_id=asset_info["department_id"],
+            location_id=asset_info.get("location_id"),
+            status_id=asset_info.get("status_id"),
+            purchase_date=asset_info.get("purchase_date"),
+            warranty_expiry=asset_info.get("warranty_expiry"),
+            configuration=asset_info.get("configuration"),
+            department_id=asset_info.get("department_id"),
             domain_id=current_user.domain_id
         )
         db.session.add(new_asset)
@@ -111,6 +110,8 @@ def create_asset():
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
+        print("Exception occurred:")
+        traceback.print_exc()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
@@ -137,11 +138,10 @@ def update_asset(asset_id):
                 "Unsupported Media Type: Content-Type must be application/json"
             }), 415
             
-        current_user = getattr(g, "current_user", None)
-        if not current_user:
-            return jsonify({"error": "Unauthorized"}), 401
+        current_user = db.session.get(User, get_jwt_identity())
         
-        asset = db.session.get(Asset, asset_id)
+        asset = Asset.query.filter_by(
+            domain_id=current_user.domain_id, id=asset_id).first()
         if not asset:
             return jsonify({"error": "Asset not found or unauthorized"}), 404
         
@@ -243,7 +243,8 @@ def get_all_asset():
         - 500 Internal Server Error: If an exception occurs.
     """
     try:
-        assets = Asset.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        assets = Asset.query.filter_by(domain_id=current_user.domain_id).all()
         return jsonify({
             "assets": [a.to_dict() for a in assets],
             "total": len(assets)
@@ -320,27 +321,43 @@ def search_assets():
 @jwt_required()
 def get_inventory_counts():
     """
-    Retrieve the total count of assets, consumables, and software.
+    Retrieve total counts of assets, consumables, and software
+    filtered by the current user's domain.
+
     Returns:
-        - 200 OK: A JSON response containing the total counts 
-        for assets, consumables, and software.
-        - 500 Internal Server Error: If an exception occurs.
+        - 200 OK: JSON with domain-specific totals.
+        - 401 Unauthorized: If user not found.
+        - 500 Internal Server Error: On unexpected failure.
     """
     try:
-        total_assets = Asset.query.count()
-        total_consumables = db.session.query(
-            func.sum(Consumables.quantity)).scalar()
-        if total_consumables is None:
-            total_consumables = 0
-        total_software = Software.query.count()
+        current_user_id = get_jwt_identity()
+        current_user = db.session.get(User, current_user_id)
+
+        if not current_user:
+            return jsonify({"error": "User not found"}), 401
+        total_assets = Asset.query.filter_by(
+            domain_id=current_user.domain_id).count()
+        total_consumables = (
+            db.session.query(func.sum(Consumables.quantity))
+            .filter(Consumables.domain_id == current_user.domain_id)
+            .scalar()
+        ) or 0
+        
+        total_software = Software.query.filter_by(
+            domain_id=current_user.domain_id).count()
 
         return jsonify({
             "totalAssets": total_assets,
             "totalConsumables": total_consumables,
             "totalSoftware": total_software
         }), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        db.session.rollback()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
 
 @asset_bp.route("/delete/assets", methods=["DELETE"])
 @jwt_required()

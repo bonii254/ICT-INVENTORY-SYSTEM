@@ -21,7 +21,6 @@ class RegAssetSchema(Schema):
     location_id = fields.Int(required=True)
     status_id = fields.Int(required=True)
     department_id = fields.Int(required=True)
-    domain_id = fields.Int(required=True)
     purchase_date = fields.Date(
         required=False,
         allow_none=True,
@@ -86,13 +85,6 @@ class RegAssetSchema(Schema):
             raise ValidationError(
                 f"Department with id {value} does not exist."
             )
-    
-    def validate_domain_id(self, value):
-        """
-        Ensure the domain_id exists in the database.
-        """
-        if value and not db.session.get(Domain, value):
-            raise ValidationError(f"Domain with id {value} does not exist.")
 
     @validates("purchase_date")
     def validate_purchase_date(self, value):
@@ -141,7 +133,6 @@ class UpdateAssetSchema(Schema):
     location_id = fields.Int(required=False, allow_none=True)
     status_id = fields.Int(required=False, allow_none=True)
     department_id = fields.Int(required=False, allow_none=True)
-    domain_id = fields.Int(required=False, allow_none=True)
     purchase_date = fields.Date(
         required=False,
         allow_none=True,
@@ -193,12 +184,6 @@ class UpdateAssetSchema(Schema):
         if value and not db.session.get(Department, value):
             raise ValidationError(
                 f"Department with id {value} does not exist.")
-            
-    @validates("domain_id")
-    def validate_domain_id(self, value):
-        if value and not db.session.get(Domain, value):
-            raise ValidationError(
-                f"Domain with id {value} does not exist.")
 
     @validates("purchase_date")
     def validate_purchase_date(self, value):
