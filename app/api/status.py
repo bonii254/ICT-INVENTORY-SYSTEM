@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, g
 from marshmallow import ValidationError 
 from app.extensions import db
-from app.models.v1 import Status
-from flask_jwt_extended import jwt_required 
+from app.models.v1 import Status, User
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.status_validate import (
     RegStatusSchema, UpdatestatusSchema)
 
@@ -34,7 +34,7 @@ def create_status():
                 "error":
                 "Unsupported Media Type. Content-Type must be application/json"
             }), 415
-        current_user = getattr(g, 'current_user', None)
+        current_user = db.session.get(User, get_jwt_identity())
         status_data = request.get_json()
         status_info = RegStatusSchema().load(status_data)
         new_status = Status(
@@ -88,7 +88,9 @@ def update_status(status_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        status = Status.query.get(status_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        status = Status.query.filter_by(
+            domain_id=current_user.domain_id, id=status_id).first()
         if not status:
             return jsonify({
                 "error": f"Status with ID {status_id} not found."
@@ -129,7 +131,9 @@ def get_status(status_id):
         or an error message if not found.
     """
     try:
-        status = Status.query.get(status_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        status = Status.query.filter_by(
+            domain_id=current_user.domain_id, id=status_id).first()
         if not status:
             return jsonify({
                 "error": f"Status with id {status_id} not found"
@@ -157,7 +161,9 @@ def get_all_statuses():
         or an error message if unsuccessful.
     """
     try:
-        statuses = Status.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        statuses = Status.query.filter_by(
+            domain_id=current_user.domain_id).all()
         status_list = [
             {
                 "id": status.id,
@@ -184,7 +190,9 @@ def delete_status(status_id):
         or an error message if the status does not exist.
     """
     try:
-        status = Status.query.get(status_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        status = Status.query.filter_by(
+            domain_id=current_user.domain_id, id=status_id).first()
         if status:
             db.session.delete(status)
             db.session.commit()
