@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request, g
-from app.models.v1 import Location
+from app.models.v1 import Location, User
 from app.extensions import db
-from flask_jwt_extended import jwt_required 
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError 
 from utils.validations.loc_validate import RegLocSchema, UpdateLocSchema
 from utils.token_helpers import smart_title
@@ -36,7 +36,7 @@ def create_location():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         if not current_user:
             return jsonify({"error": "Unauthorized"})
         location_data = request.get_json()
@@ -82,7 +82,9 @@ def update_location(location_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        location = db.session.get(Location, location_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        location = Location.query.filter_by(
+            domain_id=current_user.domain_id, id=location_id).first()
         if not location:
             return jsonify({
                 "error": f"location with ID {location_id} not found."
@@ -123,7 +125,9 @@ def get_location(location_id):
         or an error message if not found.
     """
     try:
-        location = db.session.get(Location, location_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        location = Location.query.filter_by(
+            domain_id=current_user.domain_id, id=location_id).first()
         if not location:
             return jsonify({
                 "error": f"Location with id {location_id} not found"
@@ -151,7 +155,9 @@ def get_all_locations():
         or an error message if unsuccessful.
     """
     try:
-        locations = Location.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        locations = Location.query.filter_by(
+            domain_id=current_user.domain_id).all()
         location_list = [
             {
                 "id": location.id,
@@ -178,7 +184,9 @@ def delete_location(location_id):
         or an error message if the location does not exist.
     """
     try:
-        location = db.session.get(Location, location_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        location = Location.query.filter_by(
+            domain_id=current_user.domain_id, id=location_id).first()
         if location:
             db.session.delete(location)
             db.session.commit()

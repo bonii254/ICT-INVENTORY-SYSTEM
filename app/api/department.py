@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify, g
 from marshmallow import ValidationError
+import traceback
 from app.extensions import db
-from app.models.v1 import Department
-from flask_jwt_extended import jwt_required
+from app.models.v1 import Department, User
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.dep_validate import RegDepSchema, UpdateDepSchema
 from utils.token_helpers import smart_title
 
@@ -36,7 +37,7 @@ def create_department():
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         if not current_user:
             return jsonify({"error": "Unauthorized"}), 401
         dep_data = request.get_json()
@@ -57,6 +58,8 @@ def create_department():
         return jsonify({"errors": err.messages}), 400
     except Exception as e:
         db.session.rollback()
+        print("Exception occurred:")
+        traceback.print_exc()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
@@ -88,7 +91,9 @@ def update_department(department_id):
                 "Unsupported Media Type." +
                     " Content-Type must be application/json."
             }), 415
-        department = db.session.get(Department, department_id)
+        current_user = db.session.get(User, get_jwt_identity())
+        department = Department.query.filter_by(
+            domain_id=current_user.domain_id, id=department_id).first()
         if not department:
             return jsonify({
                 "error": f"Department with ID {department_id} not found."
@@ -128,10 +133,12 @@ def get_department(department_id):
         - 500: JSON error for server issues.
     """
     try:
+        current_user = db.session.get(User, get_jwt_identity())
         if not department_id.isdigit():
             return jsonify({"Error": "Invalid department ID format"}), 400
+        
         department = Department.query.get(department_id)
-        if department:
+        if department and department.domain_id == current_user.domain_id:
             return jsonify({
                 "department": {
                     "id": department.id,
@@ -148,7 +155,7 @@ def get_department(department_id):
 
 
 @dep_bp.route('/departments', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_all_departments():
     """
     Retrieve all departments.
@@ -157,7 +164,9 @@ def get_all_departments():
         - 500: JSON error for server issues.
     """
     try:
-        departments = Department.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        departments = Department.query.filter_by(
+            domain_id=current_user.domain_id).all()
         department_list = [
             {
                 "id": department.id,
@@ -185,9 +194,11 @@ def delete_department(department_id):
         - 500: JSON error for server issues.
     """
     try:
+        current_user = db.session.get(User, get_jwt_identity())
         if not department_id.isdigit():
             return jsonify({"Error": "Invalid department ID format"}), 400
-        department = db.session.get(Department, department_id)
+        department = Department.query.filter_by(
+            domain_id=current_user.domain_id, id=department_id)
         if department:
             db.session.delete(department)
             db.session.commit()
