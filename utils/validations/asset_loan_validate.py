@@ -5,7 +5,7 @@ from datetime import datetime
 class BaseAssetLoanSchema(Schema):
     asset_id = fields.Int(required=True)
     borrower_id = fields.Int(required=True)
-    expected_return_date = fields.DateTime(required=True)
+    expected_return_date = fields.Date(required=True)
     condition_before = fields.Str(required=True)
     remarks = fields.Str(allow_none=True)
     status = fields.Str(
@@ -19,7 +19,7 @@ class AssetLoanCreateSchema(BaseAssetLoanSchema):
 
     @validates("expected_return_date")
     def validate_expected_return_date(self, value):
-        if value < datetime.utcnow():
+        if value < datetime.today().date():
             raise ValidationError(
                 "Expected return date cannot be in the past.")
 

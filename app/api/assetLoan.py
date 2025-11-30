@@ -1,9 +1,9 @@
-from flask import Blueprint, request, jsonify, g
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from datetime import datetime
 from app.extensions import db
-from app.models.v1 import AssetLoan, Asset, User
+from app.models.v1 import AssetLoan, Asset, User, ExternalMaintenance
 from utils.validations.asset_loan_validate import (
     AssetLoanCreateSchema, AssetLoanUpdateSchema)
 
@@ -11,14 +11,35 @@ from utils.validations.asset_loan_validate import (
 asset_loan_bp = Blueprint("asset_loan_bp", __name__)
 
 
-@asset_loan_bp.route("/asset-loans", methods=["POST"])
+@asset_loan_bp.route("/register/asset-loans", methods=["POST"])
 @jwt_required()
 def create_asset_loan():
     """Create a new asset loan."""
     try:
         data = request.get_json()
         validated = AssetLoanCreateSchema().load(data)
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
+        asset = db.session.get(Asset, validated["asset_id"])
+        if not asset or asset.domain_id != current_user.domain_id:
+            return jsonify({"error": "Asset not found or unauthorized."}), 404
+        
+        active_loan = AssetLoan.query.filter_by(
+            asset_id=asset.id, status="BORROWED"
+        ).first()
+        if active_loan:
+            return jsonify({
+                "error": 
+                    f"Asset '{asset.name}' is currently borrowed and not yet returned."
+            }), 400
+            
+        active_maintenance = ExternalMaintenance.query.filter_by(
+            asset_id=asset.id, status="SENT"
+        ).first()
+        if active_maintenance:
+            return jsonify({
+                "error": 
+                    f"Asset '{asset.name}' is currently out for maintenance and cannot be loaned."
+            }), 400
 
         new_loan = AssetLoan(
             asset_id=validated["asset_id"],
@@ -48,7 +69,7 @@ def create_asset_loan():
 def get_asset_loans():
     """Retrieve all asset loans for the current user's domain."""
     try:
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         loans = AssetLoan.query.filter_by(
             domain_id=current_user.domain_id).all()
         return jsonify({
@@ -63,7 +84,7 @@ def get_asset_loans():
 def get_asset_loan(id):
     """Retrieve a specific asset loan by ID."""
     try:
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         loan = AssetLoan.query.filter_by(
             id=id, domain_id=current_user.domain_id).first()
         if not loan:
@@ -78,7 +99,7 @@ def get_asset_loan(id):
 def update_asset_loan(id):
     """Update asset loan details (return or remark updates)."""
     try:
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         loan = AssetLoan.query.filter_by(
             id=id, domain_id=current_user.domain_id).first()
         if not loan:
@@ -110,7 +131,7 @@ def update_asset_loan(id):
 def delete_asset_loan(id):
     """Delete an asset loan."""
     try:
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         loan = AssetLoan.query.filter_by(
             id=id, domain_id=current_user.domain_id).first()
         if not loan:
@@ -136,7 +157,7 @@ def list_asset_loans():
         - start_date, end_date: filter loans created between dates (YYYY-MM-DD)
     """
     try:
-        current_user = getattr(g, "current_user", None)
+        current_user = db.session.get(User, get_jwt_identity())
         query = AssetLoan.query.filter_by(domain_id=current_user.domain_id)
 
         borrower_id = request.args.get("borrower_id", type=int)
