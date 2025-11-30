@@ -1,6 +1,6 @@
 from marshmallow import (Schema, fields, validate, validates, ValidationError, 
                          pre_load)
-from datetime import datetime
+from datetime import date
 from app.extensions import ma
 
 
@@ -20,8 +20,8 @@ class BaseExternalMaintenanceSchema(ma.Schema):
     description = fields.Str(
         allow_none=True, validate=validate.Length(max=500))
 
-    expected_return_date = fields.DateTime(allow_none=True)
-    actual_return_date = fields.DateTime(allow_none=True)
+    expected_return_date = fields.Date(allow_none=True)
+    actual_return_date = fields.Date(allow_none=True)
 
     cost_estimate = fields.Float(allow_none=True)
     actual_cost = fields.Float(allow_none=True)
@@ -33,10 +33,6 @@ class BaseExternalMaintenanceSchema(ma.Schema):
         missing="SENT",
         description="Current maintenance status"
     )
-
-    receipt_number = fields.Str(
-        required=True, 
-        validate=validate.Length(min=3, max=50))
     collected_by = fields.Str(
         allow_none=True, validate=validate.Length(max=255))
     received_by = fields.Str(
@@ -53,7 +49,7 @@ class BaseExternalMaintenanceSchema(ma.Schema):
     @validates("expected_return_date")
     def validate_expected_date(self, value):
         """Ensure expected date is not before today."""
-        if value and value < datetime.now():
+        if value and value < date.today():
             raise ValidationError(
                 "Expected return date cannot be in the past.")
 

@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+import traceback
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from datetime import datetime
@@ -8,30 +9,58 @@ from app.models.v1 import ExternalMaintenance, Asset, Provider, User
 from utils.validations.external_validate import (
     ExternalMaintenanceCreateSchema,
     ExternalMaintenanceUpdateSchema)
+from utils.token_helpers import generate_receipt_number
     
 
 maintenance_bp = Blueprint("maintenance", __name__)
 
 
-@maintenance_bp.route("/maintenance", methods=["POST"])
+@maintenance_bp.route("/register/maintenance", methods=["POST"])
 @jwt_required()
 def create_maintenance():
     """Register a new external maintenance record."""
     try:
+        if not request.is_json:
+            return jsonify({
+                "error": 
+                    "Unsupported Media Type. Content-Type must be application/json."
+            }), 415
+
+        current_user = db.session.get(User, get_jwt_identity())
         data = request.get_json()
+
         validated = ExternalMaintenanceCreateSchema().load(data)
+        validated["domain_id"] = current_user.domain_id
+
+        asset = db.session.get(Asset, validated["asset_id"])
+        if not asset or asset.domain_id != current_user.domain_id:
+            return jsonify({"error": "Asset not found or unauthorized"}), 404
+
+        provider = db.session.get(Provider, validated["provider_id"])
+        if not provider or provider.domain_id != current_user.domain_id:
+            return jsonify({"error": "Provider not found or unauthorized"}), 404
+
+        validated["receipt_number"] = generate_receipt_number(
+            current_user.domain.name)
+
         maintenance = ExternalMaintenance(**validated)
-        maintenance.save()
+        db.session.add(maintenance)
+        db.session.commit()
 
         return jsonify({
-            "message": "Maintenance record created successfully",
+            "message": "Maintenance record created successfully.",
             "maintenance": maintenance.to_dict()
         }), 201
+
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        print("Exception occurred:")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
 @maintenance_bp.route("/maintenance", methods=["GET"])
@@ -39,7 +68,9 @@ def create_maintenance():
 def list_maintenance():
     """Retrieve all maintenance records (domain scoped)."""
     try:
-        records = ExternalMaintenance.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        records = ExternalMaintenance.query.filter_by(
+            domain_id=current_user.domain_id).all()
         return jsonify([m.to_dict() for m in records]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -49,17 +80,22 @@ def list_maintenance():
 @jwt_required()
 def get_maintenance(maintenance_id):
     """Retrieve a single maintenance record by ID."""
-    record = ExternalMaintenance.query.get(maintenance_id)
+    current_user = db.session.get(User, get_jwt_identity())
+    record = ExternalMaintenance.query.filter_by(
+        domain_id=current_user.domain_id, id=maintenance_id).first()
     if not record:
         return jsonify({"error": "Maintenance record not found"}), 404
     return jsonify(record.to_dict()), 200
 
 
-@maintenance_bp.route("/maintenance/<int:maintenance_id>", methods=["PUT"])
+@maintenance_bp.route(
+    "/maintenance/update/<int:maintenance_id>", methods=["PUT"])
 @jwt_required()
 def update_maintenance(maintenance_id):
     """Update details of an existing maintenance record."""
-    record = ExternalMaintenance.query.get(maintenance_id)
+    current_user = db.session.get(User, get_jwt_identity())
+    record = ExternalMaintenance.query.filter_by(
+        domain_id=current_user.domain_id, id=maintenance_id).first()
     if not record:
         return jsonify({"error": "Maintenance record not found"}), 404
 
@@ -85,7 +121,9 @@ def update_maintenance(maintenance_id):
 @jwt_required()
 def delete_maintenance(maintenance_id):
     """Delete a maintenance record."""
-    record = ExternalMaintenance.query.get(maintenance_id)
+    current_user = db.session.get(User, get_jwt_identity())
+    record = ExternalMaintenance.query.filter_by(
+        domain_id=current_user.domain_id, id=maintenance_id).first()
     if not record:
         return jsonify({"error": "Maintenance record not found"}), 404
     record.delete()

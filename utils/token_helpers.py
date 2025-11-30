@@ -1,11 +1,12 @@
 from functools import wraps
 from flask import jsonify
+import uuid
 
 import logging
 from flask_jwt_extended import get_jwt, get_jwt_identity
 from datetime import datetime, timezone
 from app.extensions import db, scheduler
-from app.models.v1 import RevokedToken, User
+from app.models.v1 import RevokedToken, User, ExternalMaintenance
 
 
 def is_token_revoked(decoded_token):
@@ -110,3 +111,15 @@ def admin_required(fn):
             return jsonify({"error": "Admin privileges required"}), 403
         return fn(*args, **kwargs)
     return wrapper
+
+
+def generate_receipt_number(domain):
+    """
+    Generate a unique, traceable receipt number.
+    Format: GDFCS-{DOMAIN}-{CATEGORY}-{YYYYMMDD}-{SHORTUUID}
+    Example: GDFCS-ICT-LAPTOP-20251129-7F2A3B9C
+    """
+    timestamp = datetime.now().strftime("%Y%m%d")
+    short_uuid = uuid.uuid4().hex[:8].upper()
+
+    return f"GDFCS-{domain}{timestamp}-{short_uuid}"

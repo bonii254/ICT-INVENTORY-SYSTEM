@@ -571,7 +571,7 @@ class ExternalMaintenance(BaseModel):
             "receipt_number": self.receipt_number,
             "collected_by": self.collected_by,
             "received_by": self.received_by,
-            "domain": self.domain.name if getattr(self, "domain", None) else None,
+            "domain_id": self.domain_id
         }
 
 
@@ -632,5 +632,5 @@ class AssetLoan(BaseModel):
             "condition_before": self.condition_before,
             "condition_after": self.condition_after,
             "remarks": self.remarks,
-            "domain": self.domain.name if self.domain else None
+            "domain_id": self.domain_id
         }
