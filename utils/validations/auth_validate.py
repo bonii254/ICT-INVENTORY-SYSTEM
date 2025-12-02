@@ -1,5 +1,5 @@
 from marshmallow import (
-    fields, validate, validates, post_load, ValidationError)
+    fields, validate, validates, post_load, ValidationError, validates_schema)
 from app.extensions import ma, db
 from app.extensions import bcrypt
 from app.models.v1 import User, Role, Department
@@ -100,7 +100,11 @@ class UpdateUserSchema(ma.Schema):
                 
                 
 class UpdatePasswordSchema(ma.Schema):
-    current_password = fields.String(
-        required=True, validate=validate.Length(min=6))
-    new_password = fields.String(
-        required=True, validate=validate.Length(min=8))
+    current_password = fields.String(required=True)
+    new_password = fields.String(required=True)
+    confirm_password = fields.String(required=True)
+
+    @validates_schema
+    def validate_passwords(self, data, **kwargs):
+        if data.get("new_password") != data.get("confirm_password"):
+            raise ValidationError("Passwords must match.", field_name="confirm_password")

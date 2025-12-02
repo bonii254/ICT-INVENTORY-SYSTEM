@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+import traceback
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from datetime import datetime
@@ -136,6 +137,7 @@ def delete_asset_loan(id):
             id=id, domain_id=current_user.domain_id).first()
         if not loan:
             return jsonify({"error": "Asset loan not found"}), 404
+        
 
         db.session.delete(loan)
         db.session.commit()
@@ -160,6 +162,7 @@ def list_asset_loans():
         current_user = db.session.get(User, get_jwt_identity())
         query = AssetLoan.query.filter_by(domain_id=current_user.domain_id)
 
+        # Filters
         borrower_id = request.args.get("borrower_id", type=int)
         asset_id = request.args.get("asset_id", type=int)
         status = request.args.get("status")
@@ -180,18 +183,33 @@ def list_asset_loans():
             )
         if start_date:
             query = query.filter(
-                AssetLoan.sent_date >= datetime.strptime(
-                    start_date, "%Y-%m-%d"))
+                AssetLoan.loan_date >= datetime.strptime(start_date, "%Y-%m-%d"))
         if end_date:
             query = query.filter(
-                AssetLoan.sent_date <= datetime.strptime(
-                    end_date, "%Y-%m-%d"))
+                AssetLoan.expected_return_date <= datetime.strptime(end_date, "%Y-%m-%d"))
 
-        loans = query.order_by(AssetLoan.sent_date.desc()).all()
+        loans = query.order_by(AssetLoan.loan_date.desc()).all()
 
-        return jsonify({
-            "asset_loans": [loan.to_dict() for loan in loans]
-        }), 200
+        # Convert loans to dict with nested asset and borrower info
+        result = []
+        for loan in loans:
+            loan_dict = loan.to_dict()  # your existing method
+            # Replace asset and borrower with nested objects
+            asset = db.session.get(Asset, loan.asset_id)
+            borrower = db.session.get(User, loan.borrower_id)
+            loan_dict["asset"] = {
+                "name": asset.name if asset else None,
+                "serial_no": asset.serial_number if asset else None,
+            }
+            loan_dict["borrower"] = {
+                "full_name": borrower.fullname if borrower else None,
+                "payroll_no": borrower.payroll_no if borrower else None,
+            }
+            result.append(loan_dict)
+
+        return jsonify({"asset_loans": result}), 200
 
     except Exception as e:
+        print("Exception occurred:")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500

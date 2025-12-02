@@ -265,16 +265,20 @@ class Asset(BaseModel):
     def to_dict(self):
         return {
             "id": self.id,
-            "asset_tag": self.asset_tag,
             "name": self.name,
+            "asset tag": self.asset_tag,
             "serial_number": self.serial_number,
-            "model_number": self.model_number,
+            "model": self.model_number,
             "category": self.category.name if self.category else None,
             "assigned_to": self.user.fullname if self.user else None,
             "location": self.location.name if self.location else None,
-            "status": self.status.name if self.status else None,
             "department": self.department.name if self.department else None,
-            "domain": self.domain.name if self.domain else None,
+            "status": self.status.name if self.status else None,
+            "purchase_date": self.purchase_date.strftime('%a, %d %b %Y'),
+            "warranty_expiry": self.warranty_expiry.strftime('%a, %d %b %Y'),
+            "configuration": self.configuration,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
         }
 
 

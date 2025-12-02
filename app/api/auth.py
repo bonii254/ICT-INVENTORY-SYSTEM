@@ -90,7 +90,7 @@ def create_user():
         }), 500
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/auth/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def login():
     try:
@@ -221,6 +221,8 @@ def update_password():
         return jsonify({"errors": err.messages}), 400
     except Exception as e:
         db.session.rollback()
+        print("Exception occurred:")
+        traceback.print_exc()
         app.logger.exception(e)
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
@@ -240,6 +242,24 @@ def refresh():
     except Exception as e:
         return jsonify({"error": "Internal server error"}), 500
 
+
+@auth_bp.route('/verify-token', methods=['GET'])
+@jwt_required()
+def verify_token():
+    user =  db.session.get(User, get_jwt_identity())
+    if not user:
+        return jsonify({"error": "invalid user"}), 401
+    department = db.session.get(
+        Department, user.department_id) if user.department_id else None
+    role = db.session.get(Role, user.role_id) if user.role_id else None
+    return jsonify({
+        "id": user.id,
+        "fullname": user.fullname,
+        "email": user.email,
+        "department": department.name if department else "unknown department",
+        "role": role.name if role else "unknown role",
+        "payroll_no": user.payroll_no
+    }), 200
 
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required(refresh=True)
@@ -269,7 +289,7 @@ def logout():
 
 
 @auth_bp.route('/auth/update/<user_id>', methods=['PUT'])
-@jwt_required()
+#@jwt_required()
 def Update_User_Info(user_id):
     """Update user info in the database"""
     try:
@@ -391,6 +411,7 @@ def get_all_users():
             user_list.append({
                 "id": user.id,
                 "fullname": user.fullname,
+                "payroll_no": user.payroll_no,
                 "email": user.email,
                 "department": department.name if department else \
                     "Unknown Department",
