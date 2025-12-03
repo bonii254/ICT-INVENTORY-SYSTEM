@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError 
 from app.extensions import db
-from app.models.v1 import Role
-from flask_jwt_extended import jwt_required 
+from app.models.v1 import Role, User
+from flask_jwt_extended import jwt_required, get_jwt_identity 
 from utils.validations.role_validate import RegRoleSchema, UpdateRoleSchema
 
 
@@ -151,7 +151,8 @@ def get_all_roles():
         or an error message if unsuccessful.
     """
     try:
-        roles = Role.query.all()
+        current_user = db.session.get(User, get_jwt_identity())
+        roles = Role.query.filter_by(domain_id=current_user.id).all()
         role_list = [
             {
                 "id": role.id,
