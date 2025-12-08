@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 import traceback
+from datetime import date
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from datetime import datetime
@@ -112,6 +113,42 @@ def update_maintenance(maintenance_id):
         }), 200
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+    
+@maintenance_bp.route("/maintenance/receive/<int:maintenance_id>", methods=["PUT"])
+@jwt_required()
+def receive_asset(maintenance_id):
+    """Mark an external maintenance asset as returned from provider."""
+    current_user = db.session.get(User, get_jwt_identity())
+    record = ExternalMaintenance.query.filter_by(
+        domain_id=current_user.domain_id, id=maintenance_id
+    ).first()
+
+    if not record:
+        return jsonify({"error": "Maintenance record not found"}), 404
+
+    try:
+        data = request.get_json() or {}
+        actual_cost = data.get("actual_cost", record.actual_cost)
+        actual_return_date = data.get("actual_return_date", date.today())
+        Condition_After_Maintenance = data.get("Condition_After_Maintenance")
+
+        record.actual_cost = actual_cost
+        record.Condition_After_Maintenance = Condition_After_Maintenance
+        record.actual_return_date = actual_return_date
+        record.received_by = current_user.fullname
+        record.status = "RETURNED"
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Asset successfully marked as returned",
+            "maintenance": record.to_dict()
+        }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500

@@ -26,7 +26,7 @@ class AssetLoanCreateSchema(BaseAssetLoanSchema):
 
 class AssetLoanUpdateSchema(Schema):
     """Schema for updating an existing asset loan."""
-    actual_return_date = fields.DateTime(allow_none=True)
+    actual_return_date = fields.Date(allow_none=True)
     condition_after = fields.Str(allow_none=True)
     remarks = fields.Str(allow_none=True)
     status = fields.Str(

@@ -95,27 +95,71 @@ def reg_stocktransaction():
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
+        
 
-
-@stocktrans_bp.route("/stocktransactions", methods=["GET"])
+@stocktrans_bp.route("/stocktransactions/<int:location_id>", methods=["GET"])
 @jwt_required()
-def get_all_transactions():
+def get_all_transactions(location_id):
     """
-    Retrieves all stock transactions from the database.
-    This route fetches all records from the `StockTransaction` table
-    and returns them in a JSON format.
-    Returns:
-        - 200: List of all stock transactions.
-        - 500: Internal server error if an unexpected error occurs.
+    Retrieves stock transactions for a specific location with
+    optional filtering and pagination.
+    Always returns a paginated structure, even if empty.
     """
     try:
         current_user = db.session.get(User, get_jwt_identity())
-        transactions = StockTransaction.query.filter_by(
-            domain_id=current_user.domain_id).all()
+
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
+        fullname = request.args.get("fullname", "").strip()
+        department_name = request.args.get("department_name", "").strip()
+        transaction_type = request.args.get("transaction_type", "").strip()
+        consumable_name = request.args.get("consumable_name", "").strip()
+
+        query = (
+            db.session.query(
+                StockTransaction.id,
+                StockTransaction.quantity,
+                StockTransaction.transaction_type,
+                StockTransaction.created_at,
+                Consumables.name.label("consumable"),
+                Department.name.label("department"),
+                User.fullname.label("user")
+            )
+            .join(Consumables, StockTransaction.consumable_id == Consumables.id)
+            .join(Department, StockTransaction.department_id == Department.id)
+            .join(User, StockTransaction.user_id == User.id)
+            .filter(
+                StockTransaction.domain_id == current_user.domain_id,
+                Consumables.location_id == location_id
+            )
+        )
+
+        if fullname:
+            query = query.filter(User.fullname.ilike(f"%{fullname}%"))
+        if department_name:
+            query = query.filter(Department.name.ilike(f"%{department_name}%"))
+        if transaction_type:
+            query = query.filter(StockTransaction.transaction_type == transaction_type)
+        if consumable_name:
+            query = query.filter(Consumables.name.ilike(f"%{consumable_name}%"))
+
+        total = query.count()
+
+        transactions = query.order_by(StockTransaction.created_at.desc()) \
+                            .offset((page - 1) * per_page) \
+                            .limit(per_page) \
+                            .all()
+
+        transactions_list = [dict(t._mapping) for t in transactions]
+
         return jsonify({
-            "Transactions":
-            [t.to_dict() for t in transactions]
+            "transactions": transactions_list, 
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": (total + per_page - 1) // per_page
         }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({
@@ -123,43 +167,37 @@ def get_all_transactions():
         }), 500
 
 
-@stocktrans_bp.route("/transaction/search", methods=["GET"])
+
+@stocktrans_bp.route("/transaction/search/<int:location_id>", methods=["GET"])
 @jwt_required()
-def search_transaction():
+def search_transaction(location_id):
     """
-    Searches for stock transactions based on various filter criteria.
-    This route allows the user to search for stock transactions by providing
-    optional query parameters:
-    - fullname: Filter by user's full name.
-    - department_name: Filter by department name.
-    - transaction_type: Filter by transaction type ("IN" or "OUT").
-    - consumable_name: Filter by consumable name.
-    - start_date and end_date: Filter by transaction date range.
-    Pagination is supported using the `page` and `per_page` query parameters.
-    Returns:
-        - 200: Paginated list of matching stock transactions.
-        - 400: Invalid date format in `start_date` or `end_date`.
-        - 500: Internal server error if an unexpected error occurs.
+    Searches stock transactions for a specific location within the user's domain.
+    Supports filters by user name, department, consumable, transaction type, and date range.
     """
     try:
         fullname = request.args.get("fullname", None, type=str)
         department_name = request.args.get("department_name", None, type=str)
         transaction_type = request.args.get("transaction_type", None, type=str)
         consumable_name = request.args.get("consumable_name", None, type=str)
-        start_date = request.args.get('start_date', type=str)
-        end_date = request.args.get('end_date', type=str)
-        page = request.args.get('page', type=int, default=1)
-        per_page = request.args.get('per_page', type=int, default=10)
+        start_date = request.args.get("start_date", type=str)
+        end_date = request.args.get("end_date", type=str)
+        page = request.args.get("page", type=int, default=1)
+        per_page = request.args.get("per_page", type=int, default=10)
+
+        current_user = db.session.get(User, get_jwt_identity())
 
         query = (
             db.session.query(StockTransaction)
             .join(User, StockTransaction.user_id == User.id)
-            .join(
-                Consumables, StockTransaction.consumable_id == Consumables.id)
+            .join(Consumables, StockTransaction.consumable_id == Consumables.id)
             .join(Department, StockTransaction.department_id == Department.id)
+            .filter(
+                StockTransaction.domain_id == current_user.domain_id,
+                Consumables.location_id == location_id
+            )
         )
-        transactions = query.all()
-        print(transactions)
+
         filters = []
 
         if fullname:
@@ -167,31 +205,26 @@ def search_transaction():
         if department_name:
             filters.append(Department.name.ilike(f"%{department_name}%"))
         if transaction_type:
-            filters.append(
-                StockTransaction.transaction_type == transaction_type)
+            filters.append(StockTransaction.transaction_type == transaction_type)
         if consumable_name:
             filters.append(Consumables.name.ilike(f"%{consumable_name}%"))
         if start_date:
             try:
-                start_date_obj = datetime.strptime(
-                    start_date, "%Y-%m-%d").date()
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
                 filters.append(StockTransaction.created_at >= start_date_obj)
             except ValueError:
-                return jsonify({
-                    "error": "Invalid start_date format. Use YYYY-MM-DD."
-                }), 400
+                return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD."}), 400
         if end_date:
             try:
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
                 filters.append(StockTransaction.created_at <= end_date_obj)
             except ValueError:
-                return jsonify({
-                    "error": "Invalid end_date format. Use YYYY-MM-DD."}), 400
+                return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD."}), 400
+
         if filters:
             query = query.filter(and_(*filters))
 
-        transactions = query.paginate(
-            page=page, per_page=per_page, error_out=False)
+        transactions = query.paginate(page=page, per_page=per_page, error_out=False)
 
         response = {
             "transactions": [t.to_dict() for t in transactions.items],
@@ -202,6 +235,7 @@ def search_transaction():
         }
 
         return jsonify(response), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({

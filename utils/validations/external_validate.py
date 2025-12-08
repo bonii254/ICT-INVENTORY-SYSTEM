@@ -19,6 +19,8 @@ class BaseExternalMaintenanceSchema(ma.Schema):
     )
     description = fields.Str(
         allow_none=True, validate=validate.Length(max=500))
+    Condition_After_Maintenance = fields.Str(
+        allow_none=True, validate=validate.Length(max=500))
 
     expected_return_date = fields.Date(allow_none=True)
     actual_return_date = fields.Date(allow_none=True)

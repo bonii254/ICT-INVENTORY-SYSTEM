@@ -160,9 +160,9 @@ def get_consumable(id):
         }), 500
 
 
-@consumables_bp.route('/consumables', methods=['GET'])
+@consumables_bp.route('/consumables/<int:location_id>', methods=['GET'])
 @jwt_required()
-def get_all_consumable():
+def get_all_consumable(location_id):
     """
     Retrieves all consumables in the inventory.
     This endpoint fetches all consumables from the database. If no consumables
@@ -178,7 +178,7 @@ def get_all_consumable():
     try:
         current_user = db.session.get(User, get_jwt_identity())
         consumables = Consumables.query.filter_by(
-            domain_id=current_user.domain_id).all()
+            domain_id=current_user.domain_id, location_id=location_id).all()
         if consumables:
             consumable_list = [
                 consumable.to_dict() for consumable in consumables

@@ -519,6 +519,7 @@ class ExternalMaintenance(BaseModel):
         nullable=False
     )
     description = db.Column(db.Text, nullable=True)
+    Condition_After_Maintenance = db.Column(db.Text, nullable=True)
 
     sent_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     expected_return_date = db.Column(db.DateTime, nullable=True)
@@ -561,11 +562,19 @@ class ExternalMaintenance(BaseModel):
     def to_dict(self):
         return {
             "id": self.id,
-            "asset": self.asset.name if self.asset else None,
-            "parent_asset": self.parent_asset.name if self.parent_asset else None,
+            "asset": {
+                "id": self.asset.id if self.asset else None,
+                "name": self.asset.name if self.asset else None,
+                "serial_no": self.asset.serial_number if self.asset else None,  # fix field name
+            },
+            "parent_asset": {
+                "id": self.parent_asset.id if self.parent_asset else None,
+                "name": self.parent_asset.name if self.parent_asset else None,
+            },
             "provider": self.provider.to_dict() if self.provider else None,
             "maintenance_type": self.maintenance_type,
             "description": self.description,
+            "Condition_After_Maintenance": self.Condition_After_Maintenance,
             "sent_date": self.sent_date,
             "expected_return_date": self.expected_return_date,
             "actual_return_date": self.actual_return_date,
