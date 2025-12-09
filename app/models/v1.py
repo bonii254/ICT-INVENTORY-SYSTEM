@@ -311,13 +311,21 @@ class AssetLifecycle(BaseModel):
         db.ForeignKey('domains.id', ondelete="SET NULL"), 
         nullable=True 
     ) 
+    asset = db.relationship(
+        'Asset', 
+        foreign_keys=[asset_id], 
+        backref='asset_life_cycle'
+    )
     def to_dict(self): 
         return { 
-                "id": self.id, 
-                "asset_id": self.asset_id, 
+                "id": self.id,  
+                "asset": {
+                    "id": self.asset.id if self.asset else None,
+                    "name": self.asset.name if self.asset else None,
+                    "serial_no": self.asset.serial_number if self.asset else None, 
+                },
                 "event": self.event, 
-                "notes": self.notes, 
-                "domain": self.domain.name if self.domain else None, 
+                "notes": self.notes,  
                 "created_at": self.created_at.isoformat() \
                     if self.created_at else None, 
                 "updated_at": self.updated_at.isoformat() \
