@@ -5,6 +5,7 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 unset_jwt_cookies,)
 import secrets
 import traceback
+import redis
 import string
 from flask_mail import Message
 from datetime import datetime, timezone
@@ -21,10 +22,16 @@ from utils.email_helper import send_welcome_email, send_password_changed_email
 
 
 auth_bp = Blueprint("auth", __name__)
+BLACKLIST_PREFIX = "jwt_blacklist_"
 
 limiter = Limiter(
     get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
+redis_client = redis.Redis(
+                host='127.0.0.1',
+                port=6379,
+                decode_responses=True
+        )
 
 @auth_bp.route('/auth/register', methods=['POST'])
 @jwt_required()
@@ -135,8 +142,10 @@ def login():
         return jsonify({"error": "Internal server error"}), 500
 
 @jwt.token_in_blocklist_loader
-def check_if_token_revoked(jwt_header, jwt_payload):
-    return is_token_revoked(jwt_payload)
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    token_type = jwt_payload.get("type", "access")
+    return redis_client.exists(f"{BLACKLIST_PREFIX}{token_type}_{jti}") > 0
 
 
 @auth_bp.route('/auth/admin/reset-password/<int:user_id>', methods=['POST'])
@@ -231,12 +240,32 @@ def update_password():
 @jwt_required(refresh=True)
 def refresh():
     try:
+        jti = get_jwt()["jti"]
+        if redis_client.exists(f"{BLACKLIST_PREFIX}refresh_{jti}"):
+            return jsonify({"error": "Token has been revoked"}), 401
+
         current_user_id = get_jwt_identity()
-        access_token = create_access_token(identity=current_user_id)
+        new_access_token = create_access_token(identity=current_user_id)
 
-        response = jsonify({"message": "Access token refreshed"})
-        set_access_cookies(response, access_token)
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"error": "Invalid user"}), 404
 
+        department = db.session.get(Department, user.department_id) \
+            if user.department_id else None
+        role = db.session.get(Role, user.role_id) if user.role_id else None
+
+        response = jsonify({
+            "msg": "Token refreshed successfully",
+            "user": {
+                "fullname": user.fullname,
+                "email": user.email,
+                "department_id": department.name if department else None,
+                "role_id": role.name if role else None
+            }
+        })
+
+        set_access_cookies(response, new_access_token)
         return response, 200
 
     except Exception as e:
@@ -265,23 +294,15 @@ def verify_token():
 @jwt_required(refresh=True)
 def logout():
     try:
-        jwt_payload = get_jwt()
-        jti = jwt_payload["jti"]
-        token_type = jwt_payload["type"]
-        expires = datetime.fromtimestamp(jwt_payload["exp"], tz=timezone.utc)
-
-        revoked_token = RevokedToken(
-            jti=jti,
-            token_type=token_type,
-            expires_at=expires,
-            revoked_at=datetime.now(timezone.utc)
-        )
-        db.session.add(revoked_token)
-        db.session.commit()
-
-        response = jsonify({"message": "Successfully logged out"})
-        unset_jwt_cookies(response)
-        return response, 200
+        "logout a user by disabling access token"
+        jti = get_jwt()["jti"]
+        token_type = get_jwt()["type"]
+        exp_timestamp = get_jwt()["exp"]
+        now = int(datetime.utcnow().timestamp())
+        ttl = exp_timestamp - now
+        redis_client.setex(f"{BLACKLIST_PREFIX}{token_type}_{jti}", ttl, 1)
+        redis_client.setex(f"{BLACKLIST_PREFIX}refresh_{jti}", ttl, 1)
+        return jsonify({"msg": "Successfully logged out"}), 200
 
     except Exception as e:
         db.session.rollback()
