@@ -132,13 +132,17 @@ def receive_asset(maintenance_id):
 
     try:
         data = request.get_json() or {}
-        actual_cost = data.get("actual_cost", record.actual_cost)
-        actual_return_date = data.get("actual_return_date", date.today())
-        Condition_After_Maintenance = data.get("Condition_After_Maintenance")
+        validated = ExternalMaintenanceUpdateSchema().load(data, partial=True)
 
-        record.actual_cost = actual_cost
-        record.Condition_After_Maintenance = Condition_After_Maintenance
-        record.actual_return_date = actual_return_date
+        if "actual_cost" in validated:
+            record.actual_cost = validated["actual_cost"]
+        if "actual_return_date" in validated:
+            record.actual_return_date = validated["actual_return_date"]
+        if "Condition_After_Maintenance" in validated:
+            record.Condition_After_Maintenance = validated["Condition_After_Maintenance"]
+        if "delivery_note" in validated:
+            record.delivery_note = validated["delivery_note"]
+
         record.received_by = current_user.fullname
         record.status = "RETURNED"
 
@@ -149,6 +153,8 @@ def receive_asset(maintenance_id):
             "maintenance": record.to_dict()
         }), 200
 
+    except ValidationError as ve:
+        return jsonify({"errors": ve.messages}), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
