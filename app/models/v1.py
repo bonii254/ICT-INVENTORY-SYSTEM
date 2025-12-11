@@ -535,6 +535,8 @@ class ExternalMaintenance(BaseModel):
 
     cost_estimate = db.Column(db.Float, nullable=True)
     actual_cost = db.Column(db.Float, nullable=True)
+    
+    delivery_note = db.Column(db.Text, nullable=True)
 
     status = db.Column(
         db.Enum(
@@ -573,7 +575,7 @@ class ExternalMaintenance(BaseModel):
             "asset": {
                 "id": self.asset.id if self.asset else None,
                 "name": self.asset.name if self.asset else None,
-                "serial_no": self.asset.serial_number if self.asset else None,  # fix field name
+                "serial_no": self.asset.serial_number if self.asset else None,
             },
             "parent_asset": {
                 "id": self.parent_asset.id if self.parent_asset else None,
@@ -592,6 +594,7 @@ class ExternalMaintenance(BaseModel):
             "receipt_number": self.receipt_number,
             "collected_by": self.collected_by,
             "received_by": self.received_by,
+            "delivery_note": self.delivery_note,
             "domain_id": self.domain_id
         }
 
