@@ -1,5 +1,5 @@
 from marshmallow import (Schema, fields, validate, validates, ValidationError, 
-                         pre_load)
+                         pre_load, validates_schema)
 from datetime import date
 from app.extensions import ma
 
@@ -21,6 +21,8 @@ class BaseExternalMaintenanceSchema(ma.Schema):
         allow_none=True, validate=validate.Length(max=500))
     Condition_After_Maintenance = fields.Str(
         allow_none=True, validate=validate.Length(max=500))
+    delivery_note = fields.Str(
+        allow_none=True, validate = validate.Length(max=30))
 
     expected_return_date = fields.Date(allow_none=True)
     actual_return_date = fields.Date(allow_none=True)
@@ -54,6 +56,28 @@ class BaseExternalMaintenanceSchema(ma.Schema):
         if value and value < date.today():
             raise ValidationError(
                 "Expected return date cannot be in the past.")
+            
+    @validates_schema
+    def validate_actual_return_date(self, data, **kwargs):
+        """
+        Ensure actual_return_date:
+        - is not before sent_date
+        - is not in the future
+        """
+        actual_return = data.get("actual_return_date")
+        sent_date = data.get("sent_date")
+
+        if actual_return:
+            if sent_date and actual_return < sent_date:
+                raise ValidationError(
+                    "Actual return date cannot be before sent date.",
+                    field_name="actual_return_date"
+                )
+            if actual_return > date.today():
+                raise ValidationError(
+                    "Actual return date cannot be in the future.",
+                    field_name="actual_return_date"
+                )
 
 
 class ExternalMaintenanceCreateSchema(BaseExternalMaintenanceSchema):
