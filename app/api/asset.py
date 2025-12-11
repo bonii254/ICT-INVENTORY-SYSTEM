@@ -46,43 +46,52 @@ def create_asset():
     try:
         if not request.is_json:
             return jsonify({
-                "error":
-                "Unsupported Media Type: Content-Type must be application/json"
+                "error": "Unsupported Media Type: Content-Type must be application/json"
             }), 415
+    
         current_user = db.session.get(User, get_jwt_identity())
-        
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
+    
+        # --- Category-based Tag Generation ---
         category = db.session.get(Category, asset_info["category_id"])
         category_parts = category.name.split(':')
         category_prefix = category_parts[0][:4]
         category_suffix = category_parts[1][:3]
         base_tag = f"{category_prefix}{category_suffix}"
+    
         latest_asset = Asset.query.filter(
-            Asset.asset_tag.like(f"{base_tag}%")).order_by(
-                Asset.asset_tag.desc()).first()
+            Asset.asset_tag.like(f"{base_tag}%"),
+            Asset.domain_id == current_user.domain_id
+        ).order_by(Asset.asset_tag.desc()).first()
+    
         if latest_asset:
             last_number = int(latest_asset.asset_tag[-3:])
             new_number = str(last_number + 1).zfill(3)
         else:
             new_number = "001"
+    
         asset_tag = f"{base_tag}{new_number}"
-
-        location = db.session.get(Location, asset_info["location_id"]).name[:4]
-        location = location.upper()
-        department = db.session.get(
-            Department, asset_info["department_id"]).name[:4]
-        department = department.upper()
+    
+        # --- Name Generation (Domain Scoped) ---
+        location = db.session.get(Location, asset_info["location_id"]).name[:4].upper()
+        department = db.session.get(Department, asset_info["department_id"]).name[:4].upper()
         base_name = f"{location}-{department}-{category_suffix.upper()}"
+    
         latest_asset_name = Asset.query.filter(
-            Asset.name.like(f"{base_name}%")).order_by(
-                Asset.name.desc()).first()
+            Asset.name.like(f"{base_name}%"),
+            Asset.domain_id == current_user.domain_id
+        ).order_by(Asset.name.desc()).first()
+    
         if latest_asset_name:
             last_number = int(latest_asset_name.name[-2:])
             new_number = str(last_number + 1).zfill(2)
         else:
             new_number = "01"
+    
         asset_name = f"{base_name}{new_number}"
+    
+        # --- Create Asset ---
         new_asset = Asset(
             asset_tag=asset_tag,
             name=asset_name,
@@ -98,9 +107,10 @@ def create_asset():
             department_id=asset_info.get("department_id"),
             domain_id=current_user.domain_id
         )
+    
         db.session.add(new_asset)
         db.session.commit()
-
+    
         return jsonify({
             "message": "Asset created successfully",
             "asset": new_asset.to_dict()
