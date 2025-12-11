@@ -152,7 +152,7 @@ def get_all_roles():
     """
     try:
         current_user = db.session.get(User, get_jwt_identity())
-        roles = Role.query.filter_by(domain_id=current_user.id).all()
+        roles = Role.query.filter_by(domain_id=current_user.domain_id).all()
         role_list = [
             {
                 "id": role.id,
