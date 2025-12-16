@@ -1,6 +1,10 @@
 from marshmallow import fields, validate, validates, ValidationError 
-from app.extensions import ma
-from app.models.v1 import Location
+from app.extensions import ma, db
+from app.models.v1 import Location, User
+from flask_jwt_extended import get_jwt_identity
+
+
+current_user = db.session.get(User, get_jwt_identity())
 
 
 class RegLocSchema(ma.Schema):
@@ -10,7 +14,10 @@ class RegLocSchema(ma.Schema):
 
     @validates("name")
     def validate_name(self, value):
-        if Location.query.filter(Location.name.ilike(value)).first():
+        if Location.query.filter(
+            Location.name.ilike(value),
+            Location.domain_id == current_user.domain_id
+            ).first():
             raise ValidationError(f"Location name '{value}' already exists.")
 
 
@@ -21,6 +28,8 @@ class UpdateLocSchema(ma.Schema):
     @validates("name")
     def validate_name(self, value):
         if value:
-            if Location.query.filter(Location.name.ilike(value)).first():
+            if Location.query.filter(
+                Location.name.ilike(value),
+                Location.domain_id == current_user.domain_id).first():
                 raise ValidationError(
                     f"Location name '{value}' already exists.")
