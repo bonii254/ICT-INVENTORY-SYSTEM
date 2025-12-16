@@ -50,7 +50,7 @@ def get_all_providers():
     try:
         current_user = db.session.get(User, get_jwt_identity())
         providers = Provider.query.filter_by(
-            domain_id=current_user.department_id).all()
+            domain_id=current_user.domain_id).all()
         return jsonify({
             "providers": [p.to_dict() for p in providers]   
         }), 200
