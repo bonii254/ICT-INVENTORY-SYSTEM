@@ -37,7 +37,6 @@ class BaseProviderSchema(Schema):
         for key, value in data.items():
             if isinstance(value, str):
                 data[key] = value.strip()
-                # Only capitalize "name" and "contact_person"
                 if key in ["name", "contact_person"]:
                     data[key] = data[key].capitalize()
         return data
