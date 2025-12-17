@@ -378,23 +378,22 @@ class AssetTransfer(BaseModel):
         foreign_keys=[transferred_to], 
         backref="received_transfers")
     
-    def to_dict(self): 
-        return { 
-                "id": self.id, 
-                "asset": self.asset.name if self.asset else None, 
-                "from_location": self.from_location.name if \
-                    self.from_location else None, 
-                "to_location": self.to_location.name if \
-                    self.to_location else None, 
-                "transferred_from": self.sender.fullname if \
-                    self.sender else None, 
-                "transferred_to": self.receiver.fullname if \
-                    self.receiver else None, 
-                "domain": self.domain.name if self.domain else None, 
-                "notes": self.notes, 
-                "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"), 
-                "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
-            }
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "asset_name": self.asset.name if self.asset else None,
+            "asset_serial": self.asset.serial_number if self.asset else None,
+            "from_location": self.from_location.name if self.from_location else None,
+            "to_location": self.to_location.name if self.to_location else None,
+            "transferred_from": self.sender.fullname if self.sender else None,
+            "from_payroll": self.sender.payroll_no if self.sender else None,
+            "transferred_to": self.receiver.fullname if self.receiver else None,
+            "to_payroll": self.receiver.payroll_no if self.receiver else None,
+            "domain": self.domain.name if self.domain else None,
+            "notes": self.notes,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
 
 class Ticket(BaseModel):
