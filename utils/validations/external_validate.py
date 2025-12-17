@@ -8,7 +8,7 @@ class BaseExternalMaintenanceSchema(ma.Schema):
     """Base schema with shared field definitions for maintenance records."""
     
     asset_id = fields.Int(required=True)
-    parent_asset_id = fields.Int(allow_none=True)
+    parent_asset_id = fields.Int(allow_none=True, missing=None)
     provider_id = fields.Int(allow_none=True)
 
     maintenance_type = fields.Str(
