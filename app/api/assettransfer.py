@@ -106,6 +106,7 @@ def get_all_asset_transfers():
     """
     try:
         current_user = db.session.get(User, get_jwt_identity())
+        
         asset_transfers = AssetTransfer.query.filter_by(
             domain_id=current_user.domain_id).all()
         asset_transfer_list = [
@@ -114,6 +115,7 @@ def get_all_asset_transfers():
 
         return jsonify({"asset_transfers": asset_transfer_list}), 200
     except Exception as e:
+        print("Exception occurred:")
         return jsonify(
             {"error": f"An unexpected error occurred: {str(e)}"}
         ), 500

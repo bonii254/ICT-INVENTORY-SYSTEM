@@ -29,6 +29,8 @@ def create_maintenance():
 
         current_user = db.session.get(User, get_jwt_identity())
         data = request.get_json()
+        if data["parent_asset_id"] == 0:
+            data["parent_asset_id"] = None
 
         validated = ExternalMaintenanceCreateSchema().load(data)
         validated["domain_id"] = current_user.domain_id
