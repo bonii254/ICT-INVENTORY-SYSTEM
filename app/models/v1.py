@@ -233,6 +233,7 @@ software_asset_association = db.Table(
 class Asset(BaseModel):
     __tablename__ = 'assets'
     asset_tag = db.Column(db.String(100), nullable=False, unique=True)
+    fresha_tag = db.Column(db.String(100), nullable=False, unique=True)
     name = db.Column(db.String(255), nullable=False)
     model_number = db.Column(db.String(50))
     serial_number = db.Column(db.String(50), unique=True)
@@ -267,6 +268,7 @@ class Asset(BaseModel):
             "id": self.id,
             "name": self.name,
             "asset tag": self.asset_tag,
+            "fresha_tag": self.fresha_tag,
             "serial_number": self.serial_number,
             "model": self.model_number,
             "category": self.category.name if self.category else None,
@@ -274,8 +276,10 @@ class Asset(BaseModel):
             "location": self.location.name if self.location else None,
             "department": self.department.name if self.department else None,
             "status": self.status.name if self.status else None,
-            "purchase_date": self.purchase_date.strftime('%a, %d %b %Y'),
-            "warranty_expiry": self.warranty_expiry.strftime('%a, %d %b %Y'),
+            "purchase_date": self.purchase_date.strftime(
+                '%a, %d %b %Y') if self.purchase_date else None,
+            "warranty_expiry": self.warranty_expiry.strftime(
+                '%a, %d %b %Y') if self.warranty_expiry else None,
             "configuration": self.configuration,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S")
