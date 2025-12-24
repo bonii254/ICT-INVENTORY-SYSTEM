@@ -16,6 +16,7 @@ class RegAssetSchema(Schema):
     serial_number = fields.Str(
         required=False
     )
+    fresha_tag = fields.Str(required=False)
     category_id = fields.Int(required=True)
     assigned_to = fields.Int(required=True)
     location_id = fields.Int(required=True)
@@ -128,6 +129,7 @@ class UpdateAssetSchema(Schema):
 
     model_number = fields.Str(required=False, allow_none=True)
     serial_number = fields.Str(required=False, allow_none=True)
+    fresha_tag = fields.Str(required=False, allow_none=True)
     category_id = fields.Int(required=False, allow_none=True)
     assigned_to = fields.Int(required=False, allow_none=True)
     location_id = fields.Int(required=False, allow_none=True)
