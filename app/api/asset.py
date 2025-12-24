@@ -50,14 +50,24 @@ def create_asset():
             }), 415
 
         current_user = db.session.get(User, get_jwt_identity())
+        if not current_user:
+            return jsonify({"error": "Invalid user"}), 401
+
         asset_data = request.get_json()
         asset_info = RegAssetSchema().load(asset_data)
 
-        # --- Category-based Tag Generation ---
         category = db.session.get(Category, asset_info["category_id"])
-        category_parts = category.name.split(':')
-        category_prefix = category_parts[0][:4]
-        category_suffix = category_parts[1][:3]
+        if not category:
+            return jsonify({"error": "Invalid category_id"}), 400
+
+        category_parts = category.name.split(":")
+        if len(category_parts) < 2:
+            return jsonify({
+                "error": "Category name must follow format PREFIX:SUFFIX"
+            }), 400
+
+        category_prefix = category_parts[0][:4].upper()
+        category_suffix = category_parts[1][:3].upper()
         base_tag = f"{category_prefix}{category_suffix}"
 
         latest_asset = Asset.query.filter(
@@ -73,10 +83,18 @@ def create_asset():
 
         asset_tag = f"{base_tag}{new_number}"
 
-        # --- Name Generation (Domain Scoped) ---
-        location = db.session.get(Location, asset_info["location_id"]).name[:4].upper()
-        department = db.session.get(Department, asset_info["department_id"]).name[:4].upper()
-        base_name = f"{location}-{department}-{category_suffix.upper()}"
+        location_obj = db.session.get(Location, asset_info.get("location_id"))
+        if not location_obj:
+            return jsonify({"error": "Invalid location_id"}), 400
+
+        department_obj = db.session.get(
+               Department, asset_info.get("department_id"))
+        if not department_obj:
+            return jsonify({"error": "Invalid department_id"}), 400
+
+        location_code = location_obj.name[:4].upper()
+        department_code = department_obj.name[:4].upper()
+        base_name = f"{location_code}-{department_code}-{category_suffix}"
 
         latest_asset_name = Asset.query.filter(
             Asset.name.ilike(f"{base_name}%"),
@@ -91,14 +109,14 @@ def create_asset():
 
         asset_name = f"{base_name}{new_number}"
 
-        # --- Create Asset ---
         new_asset = Asset(
             asset_tag=asset_tag,
+            fresha_tag=asset_info.get("fresha_tag"),  # SAFE
             name=asset_name,
-            serial_number=asset_info["serial_number"],
-            model_number=asset_info["model_number"],
+            serial_number=asset_info.get("serial_number"),
+            model_number=asset_info.get("model_number"),
             category_id=asset_info["category_id"],
-            assigned_to=asset_info["assigned_to"],
+            assigned_to=asset_info.get("assigned_to"),
             location_id=asset_info.get("location_id"),
             status_id=asset_info.get("status_id"),
             purchase_date=asset_info.get("purchase_date"),
@@ -117,10 +135,12 @@ def create_asset():
         }), 201
 
     except ValidationError as err:
-        return jsonify({"error": err.messages}), 400
+        return jsonify({
+            "error": err.messages
+        }), 400
+
     except Exception as e:
         db.session.rollback()
-        print("Exception occurred:")
         traceback.print_exc()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
@@ -221,6 +241,7 @@ def update_asset(asset_id):
             "message": "Asset updated successfully",
             "asset": {
                 "asset_tag": asset.asset_tag,
+                "fresha_tag": asset.fresha_tag,
                 "name": asset.name,
                 "serial_number": asset.serial_number,
                 "model_number": asset.model_number,
@@ -260,6 +281,7 @@ def get_all_asset():
             "total": len(assets)
         }), 200
     except Exception as e:
+        traceback.print_exc()
         return jsonify({
             "error": f"An unexpected error occurred: {str(e)}"
         }), 500
