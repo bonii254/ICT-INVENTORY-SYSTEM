@@ -622,7 +622,10 @@ class AssetLoan(BaseModel):
         nullable=True
     )
 
-    loan_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    loan_date = db.Column(
+        db.DateTime(timezone=True), 
+        server_default=db.func.now(),
+        nullable=False)
     expected_return_date = db.Column(db.DateTime, nullable=True)
     actual_return_date = db.Column(db.DateTime, nullable=True)
 
