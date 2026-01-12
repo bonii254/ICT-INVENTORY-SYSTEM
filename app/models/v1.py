@@ -387,6 +387,7 @@ class AssetTransfer(BaseModel):
             "id": self.id,
             "asset_name": self.asset.name if self.asset else None,
             "asset_serial": self.asset.serial_number if self.asset else None,
+            "asset_tag": self.asset.fresha_tag if self.asset else None,
             "from_location": self.from_location.name if self.from_location else None,
             "to_location": self.to_location.name if self.to_location else None,
             "transferred_from": self.sender.fullname if self.sender else None,
@@ -578,7 +579,7 @@ class ExternalMaintenance(BaseModel):
             "asset": {
                 "id": self.asset.id if self.asset else None,
                 "name": self.asset.name if self.asset else None,
-                "serial_no": self.asset.serial_number if self.asset else None,
+                "": self.asset.serial_number if self.asset else None,
             },
             "parent_asset": {
                 "id": self.parent_asset.id if self.parent_asset else None,
@@ -654,6 +655,7 @@ class AssetLoan(BaseModel):
         return {
             "id": self.id,
             "asset": self.asset.name if self.asset else None,
+            "asset_tag": self.asset.fresha_tag if self.asset else None,
             "borrower": self.borrower.fullname if self.borrower else None,
             "loan_date": self.loan_date,
             "expected_return_date": self.expected_return_date,
