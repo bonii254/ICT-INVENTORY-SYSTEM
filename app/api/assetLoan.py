@@ -193,8 +193,7 @@ def list_asset_loans():
         # Convert loans to dict with nested asset and borrower info
         result = []
         for loan in loans:
-            loan_dict = loan.to_dict()  # your existing method
-            # Replace asset and borrower with nested objects
+            loan_dict = loan.to_dict()  
             asset = db.session.get(Asset, loan.asset_id)
             borrower = db.session.get(User, loan.borrower_id)
             loan_dict["asset"] = {

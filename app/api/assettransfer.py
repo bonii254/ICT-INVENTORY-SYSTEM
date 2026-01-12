@@ -65,7 +65,7 @@ def create_assettransfer():
             transferred_from=asset.assigned_to,
             transferred_to=assettransfer_info["transferred_to"],
             notes=assettransfer_info["notes"],
-            domain_id = current_user.department_id
+            domain_id = current_user.domain_id
         )
         new_user = db.session.get(User, assettransfer_info["transferred_to"])
         if not new_user:
