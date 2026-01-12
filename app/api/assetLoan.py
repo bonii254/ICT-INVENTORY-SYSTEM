@@ -200,6 +200,7 @@ def list_asset_loans():
             loan_dict["asset"] = {
                 "name": asset.name if asset else None,
                 "serial_no": asset.serial_number if asset else None,
+                "asset_tag": asset.fresha_tag if asset else None,
             }
             loan_dict["borrower"] = {
                 "full_name": borrower.fullname if borrower else None,
