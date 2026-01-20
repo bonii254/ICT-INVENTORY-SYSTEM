@@ -579,7 +579,7 @@ class ExternalMaintenance(BaseModel):
             "asset": {
                 "id": self.asset.id if self.asset else None,
                 "name": self.asset.name if self.asset else None,
-                "": self.asset.serial_number if self.asset else None,
+                "serial_no": self.asset.serial_number if self.asset else None,
             },
             "parent_asset": {
                 "id": self.parent_asset.id if self.parent_asset else None,
