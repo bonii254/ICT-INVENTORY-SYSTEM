@@ -4,7 +4,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from datetime import datetime
 from app.extensions import db
-from app.models.v1 import AssetLoan, Asset, User, ExternalMaintenance
+from app.models.v1 import (AssetLoan, Asset, User, ExternalMaintenance,
+                           AssetLifecycle)
 from utils.validations.asset_loan_validate import (
     AssetLoanCreateSchema, AssetLoanUpdateSchema)
 
@@ -50,8 +51,15 @@ def create_asset_loan():
             remarks=validated.get("remarks"),
             domain_id=current_user.domain_id
         )
+        
+        new_alc = AssetLifecycle(
+            asset_id=validated["asset_id"],
+            event="Asset loan",
+            notes=validated["condition_before"],
+            domain_id=current_user.domain_id
+        )
 
-        db.session.add(new_loan)
+        db.session.add_all([new_loan, new_alc])
         db.session.commit()
         return jsonify({
             "message": "Asset loan created successfully.",

@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 import traceback
 from marshmallow import ValidationError
 from app.extensions import db
-from app.models.v1 import AssetTransfer, Asset, User
+from app.models.v1 import AssetTransfer, Asset, User, AssetLifecycle
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.validations.at_validate import RegATSchema, UpdateATSchema
 
@@ -67,13 +67,19 @@ def create_assettransfer():
             notes=assettransfer_info["notes"],
             domain_id = current_user.domain_id
         )
+        new_alc = AssetLifecycle(
+            asset_id=assettransfer_info["asset_id"],
+            event="Asset transfer",
+            notes=assettransfer_info["notes"],
+            domain_id = current_user.domain_id
+        )
         new_user = db.session.get(User, assettransfer_info["transferred_to"])
         if not new_user:
             return jsonify({"error": "Receiving user not found."}), 404
         asset.assigned_to = assettransfer_info["transferred_to"]
         asset.location_id = assettransfer_info["to_location_id"]
         asset.department_id = new_user.department_id
-        db.session.add(new_assettransfer)
+        db.session.add_all([new_assettransfer, new_alc])
         db.session.commit()
         return jsonify({
             "message": "AssetTransfer registered successfully!",

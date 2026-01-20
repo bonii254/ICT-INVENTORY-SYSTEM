@@ -6,7 +6,8 @@ from marshmallow import ValidationError
 from datetime import datetime
 from sqlalchemy import and_
 from app.extensions import db
-from app.models.v1 import ExternalMaintenance, Asset, Provider, User
+from app.models.v1 import (ExternalMaintenance, Asset, Provider, User,
+                           AssetLifecycle)
 from utils.validations.external_validate import (
     ExternalMaintenanceCreateSchema,
     ExternalMaintenanceUpdateSchema)
@@ -41,13 +42,20 @@ def create_maintenance():
 
         provider = db.session.get(Provider, validated["provider_id"])
         if not provider or provider.domain_id != current_user.domain_id:
-            return jsonify({"error": "Provider not found or unauthorized"}), 404
+            return jsonify({
+                "error": "Provider not found or unauthorized"}), 404
 
         validated["receipt_number"] = generate_receipt_number(
             current_user.domain.name)
 
         maintenance = ExternalMaintenance(**validated)
-        db.session.add(maintenance)
+        new_alc = AssetLifecycle(
+            asset_id = validated["asset_id"],
+            event="External Maintenance",
+            notes=validated["description"],
+            domain_id=current_user.domain_id
+        )
+        db.session.add_all([maintenance, new_alc])
         db.session.commit()
 
         return jsonify({
