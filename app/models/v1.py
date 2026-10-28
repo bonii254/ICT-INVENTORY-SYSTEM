@@ -186,7 +186,7 @@ class User(BaseModel):
     role_id = db.Column(
         db.Integer, 
         db.ForeignKey('roles.id', ondelete="SET NULL")
-    )
+    ) 
     department_id = db.Column(
         db.Integer, 
         db.ForeignKey('departments.id', ondelete="SET NULL")
@@ -533,7 +533,8 @@ class ExternalMaintenance(BaseModel):
     description = db.Column(db.Text, nullable=True)
     Condition_After_Maintenance = db.Column(db.Text, nullable=True)
 
-    sent_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    sent_date = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
     expected_return_date = db.Column(db.DateTime, nullable=True)
     actual_return_date = db.Column(db.DateTime, nullable=True)
 
